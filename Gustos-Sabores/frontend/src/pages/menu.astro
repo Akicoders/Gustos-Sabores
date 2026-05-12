@@ -1,0 +1,45 @@
+---
+import Layout from '../layouts/Layout.astro';
+const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
+---
+
+<Layout title="Menu | Gustos y Sabores">
+  <section class="page">
+    <span class="eyebrow">Menu digital</span>
+    <h1>Sabores disponibles</h1>
+    <p>Estos platos se cargan desde la API del backend. Ejecuta `seed_mvp` para cargar datos demo.</p>
+    <div id="menu-grid" class="menu-grid" data-api={apiUrl}></div>
+    <p id="menu-status" class="status">Cargando menu...</p>
+  </section>
+</Layout>
+
+<script>
+  const grid = document.querySelector('#menu-grid');
+  const status = document.querySelector('#menu-status');
+  const api = grid?.getAttribute('data-api');
+
+  async function loadMenu() {
+    try {
+      const response = await fetch(`${api}/menu/dishes/`);
+      if (!response.ok) throw new Error('No se pudo cargar el menu');
+      const dishes = await response.json();
+      if (!dishes.length) {
+        status.textContent = 'Aun no hay platos registrados.';
+        return;
+      }
+      grid.innerHTML = dishes.map((dish) => `
+        <article class="card">
+          <p class="eyebrow">${dish.category}</p>
+          <h3>${dish.name}</h3>
+          <p>${dish.description || 'Plato disponible del restaurante.'}</p>
+          <strong class="price">S/ ${dish.price}</strong>
+        </article>
+      `).join('');
+      status.textContent = `${dishes.length} platos disponibles.`;
+    } catch (error) {
+      status.textContent = 'No se pudo conectar con la API. Revisa que Django este corriendo.';
+    }
+  }
+
+  loadMenu();
+</script>

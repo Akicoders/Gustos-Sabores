@@ -1,23 +1,209 @@
+---
+const { title = 'Gustos y Sabores' } = Astro.props;
+---
+
 <!doctype html>
-<html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro Basics</title>
-	</head>
-	<body>
-		<slot />
-	</body>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Sistema web MVP para pedidos y reservas del restaurante Gustos y Sabores." />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/">Gustos y Sabores</a>
+      <nav aria-label="Navegacion principal">
+        <a href="/menu">Menu</a>
+        <a href="/pedidos">Pedidos</a>
+        <a href="/reservas">Reservas</a>
+        <a href="/login">Login</a>
+      </nav>
+    </header>
+    <main>
+      <slot />
+    </main>
+  </body>
 </html>
 
-<style>
-	html,
-	body {
-		margin: 0;
-		width: 100%;
-		height: 100%;
-	}
+<style is:global>
+  :root {
+    color-scheme: light;
+    --ink: #173f34;
+    --ink-soft: #47645d;
+    --cream: #fbf4df;
+    --paper: #fffaf0;
+    --jade: #004c41;
+    --jade-2: #0f6f5a;
+    --gold: #b7863c;
+    --lime: #18d08c;
+    --clay: #b95e36;
+    --line: rgba(23, 63, 52, 0.16);
+    font-family: Georgia, 'Times New Roman', serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 12% 18%, rgba(24, 208, 140, 0.18), transparent 26rem),
+      linear-gradient(90deg, rgba(0, 76, 65, 0.08) 1px, transparent 1px),
+      var(--cream);
+    background-size: auto, 42px 42px, auto;
+  }
+
+  a { color: inherit; text-decoration: none; }
+
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem clamp(1rem, 4vw, 4rem);
+    color: white;
+    background: rgba(0, 76, 65, 0.94);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+    backdrop-filter: blur(12px);
+  }
+
+  .brand {
+    font-size: clamp(1.2rem, 2vw, 1.8rem);
+    font-weight: 800;
+    letter-spacing: 0.03em;
+  }
+
+  nav {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+
+  nav a {
+    padding: 0.55rem 0.8rem;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 999px;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.85rem;
+  }
+
+  main { min-height: calc(100vh - 80px); }
+
+  .page {
+    width: min(1120px, calc(100% - 2rem));
+    margin: 0 auto;
+    padding: clamp(2rem, 5vw, 5rem) 0;
+  }
+
+  .hero {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: clamp(1.5rem, 4vw, 4rem);
+    align-items: center;
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    width: fit-content;
+    margin-bottom: 1rem;
+    padding: 0.45rem 0.7rem;
+    color: var(--jade);
+    background: rgba(24, 208, 140, 0.14);
+    border: 1px solid rgba(0, 76, 65, 0.14);
+    border-radius: 999px;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  h1, h2, h3 { margin: 0; line-height: 0.96; }
+  h1 { font-size: clamp(3rem, 8vw, 7rem); letter-spacing: -0.06em; }
+  h2 { font-size: clamp(2rem, 5vw, 4rem); letter-spacing: -0.04em; }
+  h3 { font-size: 1.35rem; }
+
+  p {
+    color: var(--ink-soft);
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    line-height: 1.7;
+  }
+
+  .actions { display: flex; flex-wrap: wrap; gap: 0.8rem; margin-top: 1.5rem; }
+
+  .button, button {
+    border: 0;
+    border-radius: 999px;
+    padding: 0.85rem 1.15rem;
+    color: white;
+    background: var(--jade);
+    box-shadow: 0 18px 35px rgba(0, 76, 65, 0.2);
+    cursor: pointer;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-weight: 800;
+  }
+
+  .button.secondary { color: var(--jade); background: white; }
+
+  .panel, .card {
+    background: rgba(255, 250, 240, 0.9);
+    border: 1px solid var(--line);
+    border-radius: 28px;
+    box-shadow: 0 24px 80px rgba(23, 63, 52, 0.1);
+  }
+
+  .panel { padding: clamp(1.2rem, 3vw, 2rem); }
+
+  .feature-grid, .menu-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+  .card { padding: 1.2rem; }
+
+  .price { color: var(--clay); font-size: 1.4rem; font-weight: 900; }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  label {
+    display: grid;
+    gap: 0.35rem;
+    color: var(--ink-soft);
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+  }
+
+  input, select, textarea {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 0.85rem 1rem;
+    color: var(--ink);
+    background: white;
+    font: inherit;
+  }
+
+  textarea { min-height: 110px; resize: vertical; }
+  .full { grid-column: 1 / -1; }
+  .status { margin-top: 1rem; font-weight: 800; }
+
+  @media (max-width: 760px) {
+    .site-header { align-items: flex-start; flex-direction: column; }
+    .hero, .feature-grid, .menu-grid, .form-grid { grid-template-columns: 1fr; }
+    h1 { font-size: clamp(2.7rem, 15vw, 4rem); }
+  }
 </style>

@@ -55,6 +55,12 @@ Servicios:
 
 Si no configuras MySQL, el backend usa SQLite como fallback local.
 
+Pruebas de API del MVP:
+
+```bash
+./.venv/bin/python backend/manage.py test apps.menu apps.orders apps.reservations
+```
+
 ### Frontend
 
 ```bash

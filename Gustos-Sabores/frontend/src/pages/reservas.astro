@@ -1,0 +1,47 @@
+---
+import Layout from '../layouts/Layout.astro';
+const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
+---
+
+<Layout title="Reservas | Gustos y Sabores">
+  <section class="page">
+    <span class="eyebrow">Reserva de mesa</span>
+    <h1>Agenda tu visita</h1>
+    <form id="reservation-form" class="panel form-grid" data-api={apiUrl}>
+      <label>Nombre completo<input name="customer_name" required /></label>
+      <label>Email<input name="customer_email" type="email" required /></label>
+      <label>Telefono<input name="customer_phone" required /></label>
+      <label>Personas<input name="party_size" type="number" min="1" value="2" required /></label>
+      <label class="full">Fecha y hora<input name="reserved_at" type="datetime-local" required /></label>
+      <label class="full">Notas<textarea name="notes" placeholder="Preferencias, ocasion especial o restricciones."></textarea></label>
+      <button type="submit">Registrar reserva</button>
+      <p id="reservation-status" class="status"></p>
+    </form>
+  </section>
+</Layout>
+
+<script>
+  const form = document.querySelector('#reservation-form');
+  const status = document.querySelector('#reservation-status');
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const formData = new FormData(form);
+    const payload = Object.fromEntries(formData.entries());
+    payload.reserved_at = new Date(payload.reserved_at).toISOString();
+    payload.party_size = Number(payload.party_size);
+
+    try {
+      const response = await fetch(`${form.dataset.api}/reservations/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) throw new Error('Reserva rechazada');
+      form.reset();
+      status.textContent = 'Reserva registrada como pendiente.';
+    } catch (error) {
+      status.textContent = 'No se pudo registrar la reserva.';
+    }
+  });
+</script>

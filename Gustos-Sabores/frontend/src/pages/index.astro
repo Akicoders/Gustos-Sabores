@@ -1,11 +1,33 @@
 ---
-import Welcome from '../components/Welcome.astro';
 import Layout from '../layouts/Layout.astro';
-
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
 ---
 
-<Layout>
-	<Welcome />
+<Layout title="Gustos y Sabores | Pedidos y reservas">
+  <section class="page hero">
+    <div>
+      <span class="eyebrow">Cocina criolla norteña</span>
+      <h1>Pedidos y reservas sin desorden.</h1>
+      <p>
+        MVP web para digitalizar el menu, registrar pedidos y gestionar reservas del restaurante Gustos y Sabores.
+      </p>
+      <div class="actions">
+        <a class="button" href="/menu">Ver menu</a>
+        <a class="button secondary" href="/reservas">Reservar mesa</a>
+      </div>
+    </div>
+    <aside class="panel">
+      <span class="eyebrow">MVP 1</span>
+      <h2>Base lista para crecer</h2>
+      <p>API Django, frontend Astro, datos persistentes y panel administrativo desde el primer incremento.</p>
+    </aside>
+  </section>
+
+  <section class="page">
+    <span class="eyebrow">Procesos cubiertos</span>
+    <div class="feature-grid">
+      <article class="card"><h3>Menu digital</h3><p>Platos, categorias, disponibilidad y precios desde la API.</p></article>
+      <article class="card"><h3>Pedidos</h3><p>Registro de cliente, tipo de atencion, metodo de pago y detalle.</p></article>
+      <article class="card"><h3>Reservas</h3><p>Fecha, hora, cantidad de personas, estado y notas del cliente.</p></article>
+    </div>
+  </section>
 </Layout>

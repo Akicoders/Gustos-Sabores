@@ -1,0 +1,79 @@
+---
+import Layout from '../layouts/Layout.astro';
+const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
+---
+
+<Layout title="Pedidos | Gustos y Sabores">
+  <section class="page">
+    <span class="eyebrow">Pedido online</span>
+    <h1>Registra un pedido</h1>
+    <form id="order-form" class="panel form-grid" data-api={apiUrl}>
+      <label>Nombre completo<input name="customer_name" required /></label>
+      <label>Email<input name="customer_email" type="email" required /></label>
+      <label>Telefono<input name="customer_phone" required /></label>
+      <label>Tipo
+        <select name="order_type"><option value="local">Recojo/local</option><option value="delivery">Delivery</option></select>
+      </label>
+      <label>Metodo de pago
+        <select name="payment_method"><option value="cash">Contra entrega</option><option value="yape">Yape</option><option value="card">Tarjeta</option></select>
+      </label>
+      <label>Direccion delivery<input name="delivery_address" /></label>
+      <label class="full">Plato
+        <select id="dish-select" name="dish_id" required><option value="">Cargando platos...</option></select>
+      </label>
+      <label>Cantidad<input name="quantity" type="number" min="1" value="1" required /></label>
+      <label class="full">Notas<textarea name="notes" placeholder="Sin cebolla, poco picante, etc."></textarea></label>
+      <button type="submit">Crear pedido</button>
+      <p id="order-status" class="status"></p>
+    </form>
+  </section>
+</Layout>
+
+<script>
+  const form = document.querySelector('#order-form');
+  const select = document.querySelector('#dish-select');
+  const status = document.querySelector('#order-status');
+  const api = form?.dataset.api;
+
+  async function loadDishes() {
+    try {
+      const response = await fetch(`${api}/menu/dishes/`);
+      const dishes = await response.json();
+      select.innerHTML = '<option value="">Selecciona un plato</option>' + dishes.map((dish) => `<option value="${dish.id}">${dish.name} - S/ ${dish.price}</option>`).join('');
+    } catch (error) {
+      select.innerHTML = '<option value="">No se pudo cargar el menu</option>';
+    }
+  }
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(form).entries());
+    const payload = {
+      customer_name: data.customer_name,
+      customer_email: data.customer_email,
+      customer_phone: data.customer_phone,
+      delivery_address: data.delivery_address,
+      order_type: data.order_type,
+      payment_method: data.payment_method,
+      notes: data.notes,
+      items: [{ dish_id: Number(data.dish_id), quantity: Number(data.quantity) }],
+    };
+
+    try {
+      const response = await fetch(`${api}/orders/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) throw new Error('Pedido rechazado');
+      const order = await response.json();
+      form.reset();
+      await loadDishes();
+      status.textContent = `Pedido #${order.id} registrado. Total: S/ ${order.total}`;
+    } catch (error) {
+      status.textContent = 'No se pudo registrar el pedido.';
+    }
+  });
+
+  loadDishes();
+</script>

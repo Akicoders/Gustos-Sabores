@@ -1,0 +1,43 @@
+---
+import Layout from '../layouts/Layout.astro';
+const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
+---
+
+<Layout title="Login | Gustos y Sabores">
+  <section class="page hero">
+    <div>
+      <span class="eyebrow">Clientes</span>
+      <h1>Acceso rapido</h1>
+      <p>Autenticacion por token para que el cliente pueda consultar pedidos y reservas en siguientes incrementos.</p>
+    </div>
+    <form id="login-form" class="panel form-grid" data-api={apiUrl}>
+      <label class="full">Usuario<input name="username" required /></label>
+      <label class="full">Contrasena<input name="password" type="password" required /></label>
+      <button type="submit">Iniciar sesion</button>
+      <p id="login-status" class="status full"></p>
+    </form>
+  </section>
+</Layout>
+
+<script>
+  const form = document.querySelector('#login-form');
+  const status = document.querySelector('#login-status');
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const payload = Object.fromEntries(new FormData(form).entries());
+    try {
+      const response = await fetch(`${form.dataset.api}/auth/login/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) throw new Error('Credenciales invalidas');
+      const data = await response.json();
+      localStorage.setItem('gustos_token', data.token);
+      status.textContent = `Sesion iniciada como ${data.user.full_name || data.user.username}.`;
+    } catch (error) {
+      status.textContent = 'No se pudo iniciar sesion.';
+    }
+  });
+</script>
