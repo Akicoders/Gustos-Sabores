@@ -20,11 +20,13 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
       <section class="dash-panel">
         <h2>Pedidos por estado</h2>
         <div id="orders-donut" class="donut-chart"></div>
+        <div id="orders-legend" class="chart-legend"></div>
         <div id="orders-status"></div>
       </section>
       <section class="dash-panel">
         <h2>Reservas por estado</h2>
         <div id="reservations-donut" class="donut-chart"></div>
+        <div id="reservations-legend" class="chart-legend"></div>
         <div id="reservations-status"></div>
       </section>
       <section class="dash-panel full-panel">
@@ -33,7 +35,7 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
         <div id="menu-category"></div>
       </section>
     </div>
-    <p id="dashboard-status" class="status">Cargando KPIs...</p>
+    <p id="dashboard-status" class="status" aria-live="polite">Cargando KPIs...</p>
   </section>
 </Layout>
 
@@ -41,68 +43,122 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
   const grid = document.querySelector('#kpi-grid');
   const api = grid.dataset.api;
   const status = document.querySelector('#dashboard-status');
+  const money = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' });
+  const palette = ['#003f35', '#00725f', '#e3962e', '#ac3c24', '#6f8f87'];
+  const demoKPIs = {
+    orders_total: 24,
+    orders_revenue: 1460,
+    orders_by_status: { pending: 6, preparing: 5, ready: 4, delivered: 9 },
+    reservations_total: 12,
+    reservations_by_status: { pending: 4, confirmed: 7, cancelled: 1 },
+    dishes_total: 18,
+    available_dishes: 15,
+    menu_by_category: { Entradas: 5, Fondos: 8, Bebidas: 5 },
+  };
+
+  function createTextElement(tag, text, className) {
+    const element = document.createElement(tag);
+    if (className) element.className = className;
+    element.textContent = text;
+    return element;
+  }
 
   function renderBars(target, data) {
     const entries = Object.entries(data || {});
     if (!entries.length) {
-      target.innerHTML = '<p>Sin datos registrados.</p>';
+      target.replaceChildren(createTextElement('p', 'Sin datos registrados.'));
       return;
     }
     const max = Math.max(...entries.map(([, value]) => value), 1);
-    target.innerHTML = entries.map(([label, value]) => `
-      <div class="bar-row">
-        <span>${label}</span>
-        <div class="bar"><i style="width:${(value / max) * 100}%"></i></div>
-        <strong>${value}</strong>
-      </div>
-    `).join('');
+    target.replaceChildren(...entries.map(([label, value]) => {
+      const row = document.createElement('div');
+      row.className = 'bar-row';
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+      const fill = document.createElement('i');
+      fill.style.width = `${(Number(value) / max) * 100}%`;
+      bar.append(fill);
+      row.append(createTextElement('span', label), bar, createTextElement('strong', String(value)));
+      return row;
+    }));
+  }
+
+  function renderLegend(target, data) {
+    const entries = Object.entries(data || {});
+    target.replaceChildren(...entries.map(([label, value], index) => {
+      const item = document.createElement('span');
+      const swatch = document.createElement('i');
+      swatch.style.background = palette[index % palette.length];
+      item.append(swatch, document.createTextNode(`${label}: ${value}`));
+      return item;
+    }));
   }
 
   function renderDonut(target, data) {
     const entries = Object.entries(data || {});
     const total = entries.reduce((sum, [, value]) => sum + value, 0);
     if (!total) {
-      target.innerHTML = '<div class="donut empty"><span>0</span></div>';
+      const donut = document.createElement('div');
+      donut.className = 'donut empty';
+      donut.append(createTextElement('span', '0'));
+      target.replaceChildren(donut);
       return;
     }
-    const palette = ['#003f35', '#00725f', '#e3962e', '#ac3c24', '#6f8f87'];
     let cursor = 0;
     const stops = entries.map(([, value], index) => {
       const start = cursor;
       cursor += (value / total) * 100;
       return `${palette[index % palette.length]} ${start}% ${cursor}%`;
     }).join(', ');
-    target.innerHTML = `<div class="donut" style="background: conic-gradient(${stops})"><span>${total}</span></div>`;
+    const donut = document.createElement('div');
+    donut.className = 'donut';
+    donut.style.background = `conic-gradient(${stops})`;
+    donut.append(createTextElement('span', String(total)));
+    target.replaceChildren(donut);
   }
 
   function renderColumns(target, data) {
     const entries = Object.entries(data || {});
     const max = Math.max(...entries.map(([, value]) => value), 1);
-    target.innerHTML = entries.map(([label, value]) => `
-      <div class="column-item">
-        <div class="column-track"><i style="height:${Math.max((value / max) * 100, 8)}%"></i></div>
-        <strong>${value}</strong>
-        <span>${label}</span>
-      </div>
-    `).join('');
+    target.replaceChildren(...entries.map(([label, value]) => {
+      const item = document.createElement('div');
+      item.className = 'column-item';
+      const track = document.createElement('div');
+      track.className = 'column-track';
+      const fill = document.createElement('i');
+      fill.style.height = `${Math.max((Number(value) / max) * 100, 8)}%`;
+      track.append(fill);
+      item.append(track, createTextElement('strong', String(value)), createTextElement('span', label));
+      return item;
+    }));
+  }
+
+  function renderKPIs(data, sourceMessage) {
+    document.querySelector('#orders-total').textContent = data.orders_total;
+    document.querySelector('#orders-revenue').textContent = money.format(Number(data.orders_revenue));
+    document.querySelector('#reservations-total').textContent = data.reservations_total;
+    document.querySelector('#available-dishes').textContent = `${data.available_dishes}/${data.dishes_total}`;
+    renderDonut(document.querySelector('#orders-donut'), data.orders_by_status);
+    renderDonut(document.querySelector('#reservations-donut'), data.reservations_by_status);
+    renderLegend(document.querySelector('#orders-legend'), data.orders_by_status);
+    renderLegend(document.querySelector('#reservations-legend'), data.reservations_by_status);
+    renderColumns(document.querySelector('#menu-columns'), data.menu_by_category);
+    renderBars(document.querySelector('#orders-status'), data.orders_by_status);
+    renderBars(document.querySelector('#reservations-status'), data.reservations_by_status);
+    renderBars(document.querySelector('#menu-category'), data.menu_by_category);
+    status.textContent = sourceMessage;
   }
 
   async function loadKPIs() {
     try {
       const response = await fetch(`${api}/dashboard/kpis/`);
+      if (response.status === 401 || response.status === 403) {
+        renderKPIs(demoKPIs, 'API KPI protegida. Mostrando datos demo del dashboard publico.');
+        return;
+      }
       if (!response.ok) throw new Error('No se pudo cargar KPI');
       const data = await response.json();
-      document.querySelector('#orders-total').textContent = data.orders_total;
-      document.querySelector('#orders-revenue').textContent = `S/ ${Number(data.orders_revenue).toFixed(2)}`;
-      document.querySelector('#reservations-total').textContent = data.reservations_total;
-      document.querySelector('#available-dishes').textContent = `${data.available_dishes}/${data.dishes_total}`;
-      renderDonut(document.querySelector('#orders-donut'), data.orders_by_status);
-      renderDonut(document.querySelector('#reservations-donut'), data.reservations_by_status);
-      renderColumns(document.querySelector('#menu-columns'), data.menu_by_category);
-      renderBars(document.querySelector('#orders-status'), data.orders_by_status);
-      renderBars(document.querySelector('#reservations-status'), data.reservations_by_status);
-      renderBars(document.querySelector('#menu-category'), data.menu_by_category);
-      status.textContent = 'KPIs actualizados desde la base de datos.';
+      renderKPIs(data, 'KPIs actualizados desde la base de datos.');
     } catch (error) {
       status.textContent = 'No se pudo conectar con la API de KPIs.';
     }
@@ -180,6 +236,27 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
     background: white;
     font-size: 2rem;
     font-weight: 900;
+  }
+
+  .chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem 0.8rem;
+    margin-bottom: 1rem;
+    color: var(--ink-soft);
+    font-weight: 800;
+  }
+
+  .chart-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .chart-legend i {
+    width: 0.85rem;
+    height: 0.85rem;
+    border-radius: 999px;
   }
 
   .column-chart {

@@ -229,6 +229,16 @@ const { title = 'Gustos y Sabores' } = Astro.props;
     font-weight: 800;
   }
 
+  :focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
   .button.secondary { color: var(--jade); background: white; }
 
   .panel, .card {

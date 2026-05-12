@@ -32,12 +32,12 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
           <h2>Bebidas</h2>
           <div id="bebidas-grid" class="menu-list"></div>
         </section>
-        <p id="menu-status" class="status">Cargando menú...</p>
+        <p id="menu-status" class="status" aria-live="polite">Cargando menú...</p>
       </div>
 
       <aside class="cart-summary">
         <h3>RESUMEN DE CARRITO</h3>
-        <div id="cart-items" class="cart-items"></div>
+        <div id="cart-items" class="cart-items" aria-live="polite"></div>
         <strong>Tarifa total</strong>
         <span id="cart-total" class="price">S/ 0.00</span>
         <a class="button" href="/pedidos">Comprar</a>
@@ -59,6 +59,19 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
   const clearCart = document.querySelector('#clear-cart');
   const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
   const CART_KEY = 'gustos_cart';
+  const money = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' });
+  const dishesById = new Map();
+
+  function replaceChildren(target, children) {
+    target.replaceChildren(...children);
+  }
+
+  function createTextElement(tag, text, className) {
+    const element = document.createElement(tag);
+    if (className) element.className = className;
+    element.textContent = text;
+    return element;
+  }
 
   function getCart() {
     try {
@@ -94,21 +107,33 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
   function renderCart() {
     const cart = getCart();
     if (!cart.length) {
-      cartItems.innerHTML = '<p class="cart-empty">Aún no agregas platos.</p>';
-      cartTotal.textContent = 'S/ 0.00';
+      replaceChildren(cartItems, [createTextElement('p', 'Aún no agregas platos.', 'cart-empty')]);
+      cartTotal.textContent = money.format(0);
       return;
     }
     const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    cartItems.innerHTML = cart.map((item) => `
-      <div class="cart-line">
-        <span>${item.name} - x${item.quantity}</span>
-        <div class="cart-controls">
-          <button type="button" data-cart-minus="${item.id}">−</button>
-          <button type="button" data-cart-plus="${item.id}">+</button>
-        </div>
-      </div>
-    `).join('');
-    cartTotal.textContent = `S/ ${total.toFixed(2)}`;
+    replaceChildren(cartItems, cart.map((item) => {
+      const line = document.createElement('div');
+      line.className = 'cart-line';
+      line.append(createTextElement('span', `${item.name} - x${item.quantity}`));
+
+      const controls = document.createElement('div');
+      controls.className = 'cart-controls';
+      const minus = document.createElement('button');
+      minus.type = 'button';
+      minus.dataset.cartMinus = String(item.id);
+      minus.textContent = '-';
+      minus.setAttribute('aria-label', `Quitar ${item.name}`);
+      const plus = document.createElement('button');
+      plus.type = 'button';
+      plus.dataset.cartPlus = String(item.id);
+      plus.textContent = '+';
+      plus.setAttribute('aria-label', `Agregar ${item.name}`);
+      controls.append(minus, plus);
+      line.append(controls);
+      return line;
+    }));
+    cartTotal.textContent = money.format(total);
   }
 
   function normalizeCategory(category) {
@@ -118,21 +143,30 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
     return 'fondos';
   }
 
-  function renderDish(dish) {
+  function createDishCard(dish) {
     const image = dish.image_url || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=900&q=80';
-    return `
-      <article class="menu-dish">
-        <img src="${image}" alt="${dish.name}" loading="lazy" />
-        <div>
-          <h3>${dish.name}</h3>
-          <p>${dish.description || 'Plato disponible del restaurante.'}</p>
-        </div>
-        <div class="dish-actions">
-          <strong>S/ ${dish.price}</strong>
-          <button type="button" data-dish='${JSON.stringify(dish)}'>Agregar</button>
-        </div>
-      </article>
-    `;
+    const article = document.createElement('article');
+    article.className = 'menu-dish';
+
+    const img = document.createElement('img');
+    img.src = image;
+    img.alt = dish.name;
+    img.loading = 'lazy';
+
+    const body = document.createElement('div');
+    body.append(createTextElement('h3', dish.name), createTextElement('p', dish.description || 'Plato disponible del restaurante.'));
+
+    const actions = document.createElement('div');
+    actions.className = 'dish-actions';
+    actions.append(createTextElement('strong', money.format(Number(dish.price))));
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.dishId = String(dish.id);
+    button.textContent = 'Agregar';
+    actions.append(button);
+
+    article.append(img, body, actions);
+    return article;
   }
 
   async function loadMenu() {
@@ -140,14 +174,16 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
       const response = await fetch(`${api}/menu/dishes/`);
       if (!response.ok) throw new Error('No se pudo cargar el menu');
       const dishes = await response.json();
-      Object.values(groups).forEach((group) => group.innerHTML = '');
+      dishesById.clear();
+      Object.values(groups).forEach((group) => group.replaceChildren());
       dishes.forEach((dish) => {
+        dishesById.set(Number(dish.id), dish);
         const key = normalizeCategory(dish.category);
-        groups[key].innerHTML += renderDish(dish);
+        groups[key].append(createDishCard(dish));
       });
       status.textContent = `${dishes.length} platos disponibles.`;
-      document.querySelectorAll('[data-dish]').forEach((button) => {
-        button.addEventListener('click', () => addToCart(JSON.parse(button.dataset.dish)));
+      document.querySelectorAll('[data-dish-id]').forEach((button) => {
+        button.addEventListener('click', () => addToCart(dishesById.get(Number(button.dataset.dishId))));
       });
     } catch (error) {
       status.textContent = 'No se pudo conectar con la API. Revisa que Django esté corriendo.';

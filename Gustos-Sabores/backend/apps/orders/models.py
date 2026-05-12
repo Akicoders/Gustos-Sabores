@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
+from django.db.models import Q
 
 from apps.common.models import TimeStampedModel
 from apps.menu.models import Dish
@@ -47,6 +48,9 @@ class OrderItem(models.Model):
     dish = models.ForeignKey(Dish, related_name="order_items", on_delete=models.PROTECT)
     quantity = models.PositiveIntegerField()
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        constraints = [models.CheckConstraint(condition=Q(quantity__gt=0), name="orderitem_quantity_gt_0")]
 
     def __str__(self) -> str:
         return f"{self.quantity} x {self.dish.name}"

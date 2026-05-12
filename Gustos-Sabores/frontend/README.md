@@ -1,46 +1,25 @@
-# Astro Starter Kit: Basics
+# Frontend Gustos y Sabores
 
-```sh
-npm create astro@latest -- --template basics
+Aplicacion publica Astro para el MVP de pedidos, reservas, menu y dashboard demo de Gustos y Sabores.
+
+## Desarrollo
+
+```bash
+npm install
+npm run dev
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+La API se configura con `PUBLIC_API_URL`; por defecto usa `http://localhost:8000/api`.
 
-## 🚀 Project Structure
-
-Inside of your Astro project, you'll see the following folders and files:
+## Estructura
 
 ```text
-/
-├── public/
-│   └── favicon.svg
-├── src
-│   ├── assets
-│   │   └── astro.svg
-│   ├── components
-│   │   └── Welcome.astro
-│   ├── layouts
-│   │   └── Layout.astro
-│   └── pages
-│       └── index.astro
-└── package.json
+src/layouts/Layout.astro   Layout global y estilos base
+src/pages/                 Paginas publicas del MVP
+public/                    Favicons y assets publicos
 ```
 
-To learn more about the folder structure of an Astro project, refer to [our guide on project structure](https://docs.astro.build/en/basics/project-structure/).
+## Notas
 
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+- El dashboard publico muestra fallback demo si la API protegida de KPIs responde `401` o `403`.
+- Las promociones son demo: agregan platos reales del menu con precio real de carta, no combos falsos enviados al backend.

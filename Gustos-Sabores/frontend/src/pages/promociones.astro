@@ -7,7 +7,7 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
   <section class="promos-page page" data-api={apiUrl}>
     <span class="eyebrow">PROMOCIONES</span>
     <h1>Combos para compartir</h1>
-    <p>Promociones activas del restaurante. Agrega una promoción al carrito y continúa el pago.</p>
+    <p>Promociones demo no modeladas en backend. Al agregarlas se envía el plato real asociado, con precio real de carta.</p>
 
     <div class="promo-grid">
       <article class="promo-card" data-dish-name="Arroz con pato" data-promo-name="Combo Norteño">
@@ -15,8 +15,8 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
         <div>
           <h2>Combo Norteño</h2>
           <p>Arroz con pato + bebida tradicional.</p>
-          <strong>S/ 58.00</strong>
-          <button type="button">Agregar promoción</button>
+          <strong data-promo-price>Precio real de carta</strong>
+          <button type="button">Agregar plato asociado</button>
         </div>
       </article>
 
@@ -25,8 +25,8 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
         <div>
           <h2>Lomo para dos</h2>
           <p>Lomo saltado familiar con refresco.</p>
-          <strong>S/ 52.00</strong>
-          <button type="button">Agregar promoción</button>
+          <strong data-promo-price>Precio real de carta</strong>
+          <button type="button">Agregar plato asociado</button>
         </div>
       </article>
 
@@ -35,13 +35,13 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
         <div>
           <h2>Ceviche y chicha</h2>
           <p>Ceviche clásico + chicha morada.</p>
-          <strong>S/ 48.00</strong>
-          <button type="button">Agregar promoción</button>
+          <strong data-promo-price>Precio real de carta</strong>
+          <button type="button">Agregar plato asociado</button>
         </div>
       </article>
     </div>
 
-    <p id="promo-status" class="status"></p>
+    <p id="promo-status" class="status" aria-live="polite"></p>
     <a class="button" href="/pedidos">Ir al pago</a>
   </section>
 </Layout>
@@ -51,6 +51,7 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
   const status = document.querySelector('#promo-status');
   const api = document.querySelector('.promos-page').dataset.api;
   let dishes = [];
+  const money = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' });
 
   function getCart() {
     try { return JSON.parse(localStorage.getItem(CART_KEY) || '[]'); } catch { return []; }
@@ -63,6 +64,17 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
   async function loadDishes() {
     const response = await fetch(`${api}/menu/dishes/`);
     dishes = await response.json();
+    document.querySelectorAll('[data-dish-name]').forEach((card) => {
+      const dish = dishes.find((item) => item.name === card.dataset.dishName);
+      const price = card.querySelector('[data-promo-price]');
+      const button = card.querySelector('button');
+      if (!dish) {
+        price.textContent = 'No disponible en carta';
+        button.disabled = true;
+        return;
+      }
+      price.textContent = `${money.format(Number(dish.price))} en carta`;
+    });
   }
 
   document.querySelectorAll('[data-dish-name] button').forEach((button) => {
@@ -73,19 +85,19 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
         status.textContent = 'No se pudo encontrar el plato de esta promoción en la API.';
         return;
       }
-      const promo = {
+      const cartItem = {
         id: dish.id,
-        name: card.dataset.promoName,
+        name: dish.name,
         price: Number(dish.price),
         quantity: 1,
         image_url: dish.image_url,
       };
       const cart = getCart();
-      const existing = cart.find((item) => item.id === promo.id);
+      const existing = cart.find((item) => item.id === cartItem.id);
       if (existing) existing.quantity += 1;
-      else cart.push(promo);
+      else cart.push(cartItem);
       saveCart(cart);
-      status.textContent = `${promo.name} agregado al carrito.`;
+      status.textContent = `${card.dataset.promoName}: se agrego ${dish.name} con precio real de carta (${money.format(Number(dish.price))}).`;
     });
   });
 

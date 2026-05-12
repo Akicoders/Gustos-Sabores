@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q
 from django.utils.text import slugify
 
 from apps.common.models import TimeStampedModel
@@ -32,7 +33,10 @@ class Dish(TimeStampedModel):
 
     class Meta:
         ordering = ("name",)
-        constraints = [models.UniqueConstraint(fields=("category", "name"), name="unique_dish_per_category")]
+        constraints = [
+            models.UniqueConstraint(fields=("category", "name"), name="unique_dish_per_category"),
+            models.CheckConstraint(condition=Q(price__gte=0), name="dish_price_gte_0"),
+        ]
 
     def save(self, *args, **kwargs):
         if not self.slug:

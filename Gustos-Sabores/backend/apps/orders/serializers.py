@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.db import transaction
 from rest_framework import serializers
 
 from apps.menu.models import Dish
@@ -48,19 +49,20 @@ class OrderSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        items_data = validated_data.pop("items")
-        request = self.context["request"]
-        if request.user.is_authenticated:
-            validated_data["user"] = request.user
+        with transaction.atomic():
+            items_data = validated_data.pop("items")
+            request = self.context["request"]
+            if request.user.is_authenticated:
+                validated_data["user"] = request.user
 
-        order = Order.objects.create(**validated_data)
-        total = Decimal("0.00")
-        for item in items_data:
-            dish = item["dish"]
-            quantity = item["quantity"]
-            OrderItem.objects.create(order=order, dish=dish, quantity=quantity, unit_price=dish.price)
-            total += dish.price * quantity
+            order = Order.objects.create(**validated_data)
+            total = Decimal("0.00")
+            for item in items_data:
+                dish = item["dish"]
+                quantity = item["quantity"]
+                OrderItem.objects.create(order=order, dish=dish, quantity=quantity, unit_price=dish.price)
+                total += dish.price * quantity
 
-        order.total = total
-        order.save(update_fields=["total"])
-        return order
+            order.total = total
+            order.save(update_fields=["total"])
+            return order

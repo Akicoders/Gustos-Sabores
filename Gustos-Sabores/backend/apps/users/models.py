@@ -5,6 +5,8 @@ from apps.common.models import TimeStampedModel
 
 
 class User(AbstractUser, TimeStampedModel):
+    REQUIRED_FIELDS = ["email", "full_name"]
+
     class Roles(models.TextChoices):
         CUSTOMER = "customer", "Cliente"
         STAFF = "staff", "Personal"

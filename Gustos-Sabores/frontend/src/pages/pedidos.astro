@@ -34,12 +34,12 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
           <label class="full">Notas<textarea name="notes" placeholder="Indicaciones para cocina o entrega."></textarea></label>
         </div>
         <button type="submit">Continuar el pago</button>
-        <p id="order-status" class="status"></p>
+        <p id="order-status" class="status" aria-live="polite"></p>
       </form>
 
       <aside class="checkout-card">
         <h2>Detalles del carrito:</h2>
-        <div id="checkout-items"></div>
+        <div id="checkout-items" aria-live="polite"></div>
         <a href="/menu">Cambiar selección</a>
         <div class="total-row"><span>Tarifa total</span><strong id="checkout-total">S/ 0.00</strong></div>
       </aside>
@@ -57,6 +57,27 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
   const manualQuantityField = document.querySelector('#manual-quantity-field');
   const api = form?.dataset.api;
   const CART_KEY = 'gustos_cart';
+  const money = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' });
+
+  function setManualFieldsEnabled(enabled) {
+    manualDishField.style.display = enabled ? '' : 'none';
+    manualQuantityField.style.display = enabled ? '' : 'none';
+    manualDishField.querySelectorAll('select, input').forEach((field) => {
+      field.disabled = !enabled;
+      field.required = enabled;
+    });
+    manualQuantityField.querySelectorAll('select, input').forEach((field) => {
+      field.disabled = !enabled;
+      field.required = enabled;
+    });
+  }
+
+  function createTextElement(tag, text, className) {
+    const element = document.createElement(tag);
+    if (className) element.className = className;
+    element.textContent = text;
+    return element;
+  }
 
   function getCart() {
     try {
@@ -69,28 +90,44 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
   function renderCheckoutCart() {
     const cart = getCart();
     if (!cart.length) {
-      checkoutItems.innerHTML = '<p>No hay platos en el carrito. Puedes seleccionar uno manualmente.</p>';
-      checkoutTotal.textContent = 'S/ 0.00';
-      manualDishField.style.display = '';
-      manualQuantityField.style.display = '';
+      checkoutItems.replaceChildren(createTextElement('p', 'No hay platos en el carrito. Puedes seleccionar uno manualmente.'));
+      checkoutTotal.textContent = money.format(0);
+      setManualFieldsEnabled(true);
       return;
     }
-    manualDishField.style.display = 'none';
-    manualQuantityField.style.display = 'none';
+    setManualFieldsEnabled(false);
     const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    checkoutItems.innerHTML = cart.map((item) => `
-      <div class="cart-row"><span>${item.name} - x${item.quantity}</span><strong>S/ ${(item.price * item.quantity).toFixed(2)}</strong></div>
-    `).join('');
-    checkoutTotal.textContent = `S/ ${total.toFixed(2)}`;
+    checkoutItems.replaceChildren(...cart.map((item) => {
+      const row = document.createElement('div');
+      row.className = 'cart-row';
+      row.append(
+        createTextElement('span', `${item.name} - x${item.quantity}`),
+        createTextElement('strong', money.format(item.price * item.quantity)),
+      );
+      return row;
+    }));
+    checkoutTotal.textContent = money.format(total);
   }
 
   async function loadDishes() {
     try {
       const response = await fetch(`${api}/menu/dishes/`);
       const dishes = await response.json();
-      select.innerHTML = '<option value="">Selecciona un plato</option>' + dishes.map((dish) => `<option value="${dish.id}">${dish.name} - S/ ${dish.price}</option>`).join('');
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = 'Selecciona un plato';
+      const options = dishes.map((dish) => {
+        const option = document.createElement('option');
+        option.value = String(dish.id);
+        option.textContent = `${dish.name} - ${money.format(Number(dish.price))}`;
+        return option;
+      });
+      select.replaceChildren(placeholder, ...options);
     } catch (error) {
-      select.innerHTML = '<option value="">No se pudo cargar el menu</option>';
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = 'No se pudo cargar el menu';
+      select.replaceChildren(option);
     }
   }
 
@@ -123,7 +160,7 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
       form.reset();
       await loadDishes();
       renderCheckoutCart();
-      status.textContent = `Pedido #${order.id} registrado. Total: S/ ${order.total}`;
+      status.textContent = `Pedido #${order.id} registrado. Total: ${money.format(Number(order.total))}`;
     } catch (error) {
       status.textContent = 'No se pudo registrar el pedido.';
     }

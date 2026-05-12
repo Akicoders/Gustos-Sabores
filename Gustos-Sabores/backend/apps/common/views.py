@@ -1,5 +1,5 @@
 from django.db.models import Count, Sum
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -8,8 +8,18 @@ from apps.orders.models import Order
 from apps.reservations.models import Reservation
 
 
+class IsStaffOrAdmin(BasePermission):
+    def has_permission(self, request, _view):
+        user = request.user
+        return bool(
+            user
+            and user.is_authenticated
+            and (user.is_staff or getattr(user, "role", None) in {"staff", "admin"})
+        )
+
+
 class DashboardKPIView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsStaffOrAdmin]
 
     def get(self, _request):
         order_statuses = dict(Order.objects.values_list("status").annotate(total=Count("id")))
