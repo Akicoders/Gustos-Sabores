@@ -1,0 +1,130 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Acerca de | Gustos y Sabores">
+  <section class="about-page page">
+    <div class="corner" aria-hidden="true"></div>
+    <div class="about-heading">
+      <span class="eyebrow">ACERCA DE</span>
+      <h1>El restaurant</h1>
+    </div>
+
+    <div class="about-grid intro-block">
+      <div>
+        <h2>Tradición que se sirve fresca</h2>
+        <p>
+          Gustos y Sabores es un restaurante peruano enfocado en platos tradicionales de la costa norte con una propuesta moderna, cercana y organizada.
+        </p>
+        <p>
+          Nuestra cocina prioriza ingredientes frescos, atención cálida y una experiencia pensada para que cada cliente pueda descubrir, pedir y reservar con facilidad.
+        </p>
+      </div>
+      <div class="photo chef-photo" aria-label="Cocina del restaurante"></div>
+    </div>
+
+    <div class="about-grid reverse-block">
+      <div class="photo table-photo" aria-label="Mesa servida"></div>
+      <div>
+        <h2>Comida selecta</h2>
+        <p>
+          El sistema web acompaña la operación del restaurante digitalizando pedidos, reservas y consulta de menú, manteniendo la identidad visual del proyecto.
+        </p>
+        <p>
+          Esta vista sigue el frame de Figma de “Acerca de”: composición limpia, marco verde y secciones de imagen con texto descriptivo.
+        </p>
+      </div>
+    </div>
+
+    <section class="select-banner">
+      <h2>Comida selecta</h2>
+      <p>Una experiencia gastronómica basada en cocina criolla peruana, productos de calidad y servicio organizado.</p>
+    </section>
+  </section>
+</Layout>
+
+<style>
+  .about-page {
+    position: relative;
+  }
+
+  .corner {
+    position: absolute;
+    top: 2rem;
+    right: 1rem;
+    width: min(420px, 44vw);
+    height: 420px;
+    border-top: 18px solid var(--jade-3);
+    border-right: 18px solid var(--jade-3);
+  }
+
+  .about-heading {
+    position: relative;
+    z-index: 1;
+    margin-bottom: 2rem;
+    text-align: center;
+  }
+
+  .about-heading h1,
+  .about-heading .eyebrow {
+    color: var(--jade);
+  }
+
+  .about-grid {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(1.2rem, 4vw, 3rem);
+    align-items: center;
+    margin-bottom: 2.5rem;
+  }
+
+  .about-grid h2 {
+    color: var(--jade);
+    font-size: clamp(1.6rem, 4vw, 2.6rem);
+  }
+
+  .intro-block h2,
+  .reverse-block h2 {
+    color: var(--jade-2);
+  }
+
+  .select-banner h2 {
+    color: white;
+  }
+
+  .photo {
+    min-height: 280px;
+    border-radius: 8px;
+    box-shadow: 0 22px 60px rgba(0, 63, 53, 0.16);
+  }
+
+  .chef-photo {
+    background: linear-gradient(rgba(0, 63, 53, 0.12), rgba(0, 63, 53, 0.12)), url('https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&w=1000&q=80') center/cover;
+  }
+
+  .table-photo {
+    background: linear-gradient(rgba(0, 63, 53, 0.12), rgba(0, 63, 53, 0.12)), url('https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1000&q=80') center/cover;
+  }
+
+  .select-banner {
+    display: grid;
+    place-items: center;
+    min-height: 360px;
+    padding: 2rem;
+    color: white;
+    text-align: center;
+    background: linear-gradient(rgba(0, 63, 53, 0.72), rgba(0, 63, 53, 0.72)), url('https://images.unsplash.com/photo-1600891964599-f61ba0e24092?auto=format&fit=crop&w=1400&q=80') center/cover;
+  }
+
+  .select-banner p {
+    max-width: 560px;
+    color: rgba(255, 255, 255, 0.82);
+  }
+
+  @media (max-width: 760px) {
+    .about-grid { grid-template-columns: 1fr; }
+    .reverse-block .photo { order: 2; }
+  }
+</style>

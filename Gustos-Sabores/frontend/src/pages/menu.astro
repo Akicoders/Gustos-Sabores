@@ -3,43 +3,302 @@ import Layout from '../layouts/Layout.astro';
 const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
 ---
 
-<Layout title="Menu | Gustos y Sabores">
-  <section class="page">
-    <span class="eyebrow">Menu digital</span>
-    <h1>Sabores disponibles</h1>
-    <p>Estos platos se cargan desde la API del backend. Ejecuta `seed_mvp` para cargar datos demo.</p>
-    <div id="menu-grid" class="menu-grid" data-api={apiUrl}></div>
-    <p id="menu-status" class="status">Cargando menu...</p>
+<Layout title="Menú | Gustos y Sabores">
+  <section class="menu-page page">
+    <div class="corner corner-top" aria-hidden="true"></div>
+    <div class="menu-title">
+      <span class="eyebrow">MENÚ</span>
+      <h1>Menú de almuerzo</h1>
+      <p>Selección de tu menú. Puedes personalizarla a tu gusto.</p>
+    </div>
+
+    <div class="menu-layout">
+      <aside class="category-rail" aria-label="Categorias">
+        <a href="#entradas">Entradas</a>
+        <a href="#principales">Principales</a>
+        <a href="#bebidas">Bebidas</a>
+      </aside>
+
+      <div class="menu-content">
+        <section id="entradas" class="menu-section">
+          <h2>Entradas</h2>
+          <div id="entradas-grid" class="menu-list"></div>
+        </section>
+        <section id="principales" class="menu-section">
+          <h2>Principales</h2>
+          <div id="principales-grid" class="menu-list"></div>
+        </section>
+        <section id="bebidas" class="menu-section">
+          <h2>Bebidas</h2>
+          <div id="bebidas-grid" class="menu-list"></div>
+        </section>
+        <p id="menu-status" class="status">Cargando menú...</p>
+      </div>
+
+      <aside class="cart-summary">
+        <h3>RESUMEN DE CARRITO</h3>
+        <div id="cart-items" class="cart-items"></div>
+        <strong>Tarifa total</strong>
+        <span id="cart-total" class="price">S/ 0.00</span>
+        <a class="button" href="/pedidos">Comprar</a>
+        <button id="clear-cart" class="button secondary" type="button">Vaciar carrito</button>
+      </aside>
+    </div>
   </section>
 </Layout>
 
 <script>
-  const grid = document.querySelector('#menu-grid');
   const status = document.querySelector('#menu-status');
-  const api = grid?.getAttribute('data-api');
+  const groups = {
+    entradas: document.querySelector('#entradas-grid'),
+    fondos: document.querySelector('#principales-grid'),
+    bebidas: document.querySelector('#bebidas-grid'),
+  };
+  const cartItems = document.querySelector('#cart-items');
+  const cartTotal = document.querySelector('#cart-total');
+  const clearCart = document.querySelector('#clear-cart');
+  const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
+  const CART_KEY = 'gustos_cart';
+
+  function getCart() {
+    try {
+      return JSON.parse(localStorage.getItem(CART_KEY) || '[]');
+    } catch {
+      return [];
+    }
+  }
+
+  function saveCart(cart) {
+    localStorage.setItem(CART_KEY, JSON.stringify(cart));
+    renderCart();
+  }
+
+  function addToCart(dish) {
+    const cart = getCart();
+    const existing = cart.find((item) => item.id === dish.id);
+    if (existing) {
+      existing.quantity += 1;
+    } else {
+      cart.push({ id: dish.id, name: dish.name, price: Number(dish.price), quantity: 1, image_url: dish.image_url });
+    }
+    saveCart(cart);
+  }
+
+  function changeQuantity(id, delta) {
+    const cart = getCart()
+      .map((item) => item.id === id ? { ...item, quantity: item.quantity + delta } : item)
+      .filter((item) => item.quantity > 0);
+    saveCart(cart);
+  }
+
+  function renderCart() {
+    const cart = getCart();
+    if (!cart.length) {
+      cartItems.innerHTML = '<p class="cart-empty">Aún no agregas platos.</p>';
+      cartTotal.textContent = 'S/ 0.00';
+      return;
+    }
+    const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    cartItems.innerHTML = cart.map((item) => `
+      <div class="cart-line">
+        <span>${item.name} - x${item.quantity}</span>
+        <div class="cart-controls">
+          <button type="button" data-cart-minus="${item.id}">−</button>
+          <button type="button" data-cart-plus="${item.id}">+</button>
+        </div>
+      </div>
+    `).join('');
+    cartTotal.textContent = `S/ ${total.toFixed(2)}`;
+  }
+
+  function normalizeCategory(category) {
+    const text = String(category || '').toLowerCase();
+    if (text.includes('entrada')) return 'entradas';
+    if (text.includes('bebida')) return 'bebidas';
+    return 'fondos';
+  }
+
+  function renderDish(dish) {
+    const image = dish.image_url || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=900&q=80';
+    return `
+      <article class="menu-dish">
+        <img src="${image}" alt="${dish.name}" loading="lazy" />
+        <div>
+          <h3>${dish.name}</h3>
+          <p>${dish.description || 'Plato disponible del restaurante.'}</p>
+        </div>
+        <div class="dish-actions">
+          <strong>S/ ${dish.price}</strong>
+          <button type="button" data-dish='${JSON.stringify(dish)}'>Agregar</button>
+        </div>
+      </article>
+    `;
+  }
 
   async function loadMenu() {
     try {
       const response = await fetch(`${api}/menu/dishes/`);
       if (!response.ok) throw new Error('No se pudo cargar el menu');
       const dishes = await response.json();
-      if (!dishes.length) {
-        status.textContent = 'Aun no hay platos registrados.';
-        return;
-      }
-      grid.innerHTML = dishes.map((dish) => `
-        <article class="card">
-          <p class="eyebrow">${dish.category}</p>
-          <h3>${dish.name}</h3>
-          <p>${dish.description || 'Plato disponible del restaurante.'}</p>
-          <strong class="price">S/ ${dish.price}</strong>
-        </article>
-      `).join('');
+      Object.values(groups).forEach((group) => group.innerHTML = '');
+      dishes.forEach((dish) => {
+        const key = normalizeCategory(dish.category);
+        groups[key].innerHTML += renderDish(dish);
+      });
       status.textContent = `${dishes.length} platos disponibles.`;
+      document.querySelectorAll('[data-dish]').forEach((button) => {
+        button.addEventListener('click', () => addToCart(JSON.parse(button.dataset.dish)));
+      });
     } catch (error) {
-      status.textContent = 'No se pudo conectar con la API. Revisa que Django este corriendo.';
+      status.textContent = 'No se pudo conectar con la API. Revisa que Django esté corriendo.';
     }
   }
 
+  cartItems?.addEventListener('click', (event) => {
+    const minus = event.target.closest('[data-cart-minus]');
+    const plus = event.target.closest('[data-cart-plus]');
+    if (minus) changeQuantity(Number(minus.dataset.cartMinus), -1);
+    if (plus) changeQuantity(Number(plus.dataset.cartPlus), 1);
+  });
+
+  clearCart?.addEventListener('click', () => saveCart([]));
+
+  renderCart();
   loadMenu();
 </script>
+
+<style>
+  .menu-page {
+    position: relative;
+    padding-top: 4rem;
+  }
+
+  .corner {
+    position: absolute;
+    top: 1.2rem;
+    right: 1rem;
+    width: min(420px, 44vw);
+    height: 260px;
+    border-top: 18px solid var(--jade-3);
+    border-right: 18px solid var(--jade-3);
+  }
+
+  .menu-title {
+    position: relative;
+    z-index: 1;
+    width: min(640px, 100%);
+    margin: 0 auto 2.5rem;
+    text-align: center;
+  }
+
+  .menu-layout {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr) 250px;
+    gap: 1.2rem;
+    align-items: start;
+  }
+
+  .category-rail,
+  .cart-summary {
+    position: sticky;
+    top: 1rem;
+    display: grid;
+    gap: 0.8rem;
+    padding: 1rem;
+    background: white;
+    border: 1px solid var(--line);
+    box-shadow: 0 16px 45px rgba(0, 63, 53, 0.08);
+  }
+
+  .category-rail a {
+    padding: 0.8rem 0;
+    border-bottom: 1px solid var(--line);
+    color: var(--jade);
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .menu-section {
+    margin-bottom: 2rem;
+  }
+
+  .menu-section h2 {
+    margin-bottom: 1rem;
+    color: var(--jade);
+    font-size: clamp(1.5rem, 4vw, 2.4rem);
+  }
+
+  .menu-list {
+    display: grid;
+    gap: 0.8rem;
+  }
+
+  .menu-dish {
+    display: grid;
+    grid-template-columns: 132px minmax(0, 1fr) max-content;
+    gap: 1rem;
+    align-items: center;
+    padding: 1rem;
+    overflow: hidden;
+    background: white;
+    border: 1px solid var(--line);
+    border-left: 8px solid var(--jade);
+  }
+
+  .menu-dish img {
+    display: block;
+    width: 132px;
+    height: 104px;
+    object-fit: cover;
+    object-position: center;
+    border-radius: 4px;
+    box-shadow: 0 12px 26px rgba(0, 63, 53, 0.12);
+  }
+
+  .menu-dish h3 { margin-bottom: 0.35rem; }
+  .menu-dish p { margin: 0; overflow-wrap: anywhere; }
+  .menu-dish strong { color: var(--jade-2); white-space: nowrap; }
+
+  .dish-actions {
+    display: grid;
+    gap: 0.6rem;
+    justify-items: end;
+    min-width: 92px;
+  }
+
+  .dish-actions button,
+  .cart-controls button {
+    border-radius: 0;
+    padding: 0.55rem 0.75rem;
+    box-shadow: none;
+  }
+
+  .cart-summary h3 { color: var(--jade); }
+  .cart-items { display: grid; gap: 0.7rem; }
+  .cart-line {
+    display: grid;
+    gap: 0.45rem;
+    margin: 0;
+    padding-bottom: 0.7rem;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.9rem;
+  }
+
+  .cart-controls { display: flex; gap: 0.4rem; }
+  .cart-empty { margin: 0; font-size: 0.9rem; }
+  .cart-summary .button { text-align: center; }
+
+  @media (max-width: 900px) {
+    .menu-layout { grid-template-columns: 1fr; }
+    .category-rail, .cart-summary { position: static; }
+    .menu-dish { grid-template-columns: 96px 1fr; }
+    .menu-dish img { width: 96px; height: 86px; }
+    .menu-dish strong { grid-column: 2; }
+  }
+
+  @media (max-width: 560px) {
+    .menu-dish { grid-template-columns: 1fr; }
+    .menu-dish img { width: 100%; height: 180px; }
+    .menu-dish strong { grid-column: auto; }
+  }
+</style>

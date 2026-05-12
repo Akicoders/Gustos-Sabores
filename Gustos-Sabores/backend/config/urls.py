@@ -10,6 +10,7 @@ def health_view(_request):
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", health_view, name="health"),
+    path("api/dashboard/", include("apps.common.urls")),
     path("api/auth/", include("apps.users.urls")),
     path("api/menu/", include("apps.menu.urls")),
     path("api/orders/", include("apps.orders.urls")),

@@ -3,29 +3,47 @@ import Layout from '../layouts/Layout.astro';
 const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
 ---
 
-<Layout title="Pedidos | Gustos y Sabores">
-  <section class="page">
-    <span class="eyebrow">Pedido online</span>
-    <h1>Registra un pedido</h1>
-    <form id="order-form" class="panel form-grid" data-api={apiUrl}>
-      <label>Nombre completo<input name="customer_name" required /></label>
-      <label>Email<input name="customer_email" type="email" required /></label>
-      <label>Telefono<input name="customer_phone" required /></label>
-      <label>Tipo
-        <select name="order_type"><option value="local">Recojo/local</option><option value="delivery">Delivery</option></select>
-      </label>
-      <label>Metodo de pago
-        <select name="payment_method"><option value="cash">Contra entrega</option><option value="yape">Yape</option><option value="card">Tarjeta</option></select>
-      </label>
-      <label>Direccion delivery<input name="delivery_address" /></label>
-      <label class="full">Plato
-        <select id="dish-select" name="dish_id" required><option value="">Cargando platos...</option></select>
-      </label>
-      <label>Cantidad<input name="quantity" type="number" min="1" value="1" required /></label>
-      <label class="full">Notas<textarea name="notes" placeholder="Sin cebolla, poco picante, etc."></textarea></label>
-      <button type="submit">Crear pedido</button>
-      <p id="order-status" class="status"></p>
-    </form>
+<Layout title="Pago | Gustos y Sabores">
+  <section class="payment-page page">
+    <p class="breadcrumb">Inicio &nbsp;&gt;&nbsp; Menú &nbsp;&gt;&nbsp; Pago</p>
+    <div class="payment-heading">
+      <span class="eyebrow">Compra</span>
+      <h1>Detalles del pago anticipado</h1>
+      <p>Tu carrito se mantendrá durante <strong>09:59 minutos</strong>.</p>
+    </div>
+
+    <div class="payment-layout">
+      <form id="order-form" class="payment-form" data-api={apiUrl}>
+        <h2>Ingresa tus datos:</h2>
+        <div class="form-grid">
+          <label>Nombre completo *<input name="customer_name" required /></label>
+          <label>Dirección de email *<input name="customer_email" type="email" required /></label>
+          <label>Documento de Identidad *<input name="document" /></label>
+          <label>Numero de teléfono *<input name="customer_phone" required /></label>
+          <label>Tipo de entrega
+            <select name="order_type"><option value="local">Recojo/local</option><option value="delivery">Delivery</option></select>
+          </label>
+          <label>Metodo de pago
+            <select name="payment_method"><option value="cash">Contra entrega</option><option value="yape">Pago digital</option><option value="card">Tarjeta</option></select>
+          </label>
+          <label class="full">Direccion delivery<input name="delivery_address" /></label>
+          <label id="manual-dish-field" class="full">Plato
+            <select id="dish-select" name="dish_id" required><option value="">Cargando platos...</option></select>
+          </label>
+          <label id="manual-quantity-field">Cantidad<input name="quantity" type="number" min="1" value="1" required /></label>
+          <label class="full">Notas<textarea name="notes" placeholder="Indicaciones para cocina o entrega."></textarea></label>
+        </div>
+        <button type="submit">Continuar el pago</button>
+        <p id="order-status" class="status"></p>
+      </form>
+
+      <aside class="checkout-card">
+        <h2>Detalles del carrito:</h2>
+        <div id="checkout-items"></div>
+        <a href="/menu">Cambiar selección</a>
+        <div class="total-row"><span>Tarifa total</span><strong id="checkout-total">S/ 0.00</strong></div>
+      </aside>
+    </div>
   </section>
 </Layout>
 
@@ -33,7 +51,38 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
   const form = document.querySelector('#order-form');
   const select = document.querySelector('#dish-select');
   const status = document.querySelector('#order-status');
+  const checkoutItems = document.querySelector('#checkout-items');
+  const checkoutTotal = document.querySelector('#checkout-total');
+  const manualDishField = document.querySelector('#manual-dish-field');
+  const manualQuantityField = document.querySelector('#manual-quantity-field');
   const api = form?.dataset.api;
+  const CART_KEY = 'gustos_cart';
+
+  function getCart() {
+    try {
+      return JSON.parse(localStorage.getItem(CART_KEY) || '[]');
+    } catch {
+      return [];
+    }
+  }
+
+  function renderCheckoutCart() {
+    const cart = getCart();
+    if (!cart.length) {
+      checkoutItems.innerHTML = '<p>No hay platos en el carrito. Puedes seleccionar uno manualmente.</p>';
+      checkoutTotal.textContent = 'S/ 0.00';
+      manualDishField.style.display = '';
+      manualQuantityField.style.display = '';
+      return;
+    }
+    manualDishField.style.display = 'none';
+    manualQuantityField.style.display = 'none';
+    const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    checkoutItems.innerHTML = cart.map((item) => `
+      <div class="cart-row"><span>${item.name} - x${item.quantity}</span><strong>S/ ${(item.price * item.quantity).toFixed(2)}</strong></div>
+    `).join('');
+    checkoutTotal.textContent = `S/ ${total.toFixed(2)}`;
+  }
 
   async function loadDishes() {
     try {
@@ -48,6 +97,7 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(form).entries());
+    const cart = getCart();
     const payload = {
       customer_name: data.customer_name,
       customer_email: data.customer_email,
@@ -56,7 +106,9 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
       order_type: data.order_type,
       payment_method: data.payment_method,
       notes: data.notes,
-      items: [{ dish_id: Number(data.dish_id), quantity: Number(data.quantity) }],
+      items: cart.length
+        ? cart.map((item) => ({ dish_id: Number(item.id), quantity: Number(item.quantity) }))
+        : [{ dish_id: Number(data.dish_id), quantity: Number(data.quantity) }],
     };
 
     try {
@@ -67,13 +119,99 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
       });
       if (!response.ok) throw new Error('Pedido rechazado');
       const order = await response.json();
+      localStorage.removeItem(CART_KEY);
       form.reset();
       await loadDishes();
+      renderCheckoutCart();
       status.textContent = `Pedido #${order.id} registrado. Total: S/ ${order.total}`;
     } catch (error) {
       status.textContent = 'No se pudo registrar el pedido.';
     }
   });
 
+  renderCheckoutCart();
   loadDishes();
 </script>
+
+<style>
+  .payment-page {
+    position: relative;
+  }
+
+  .breadcrumb {
+    margin: 0 0 1rem;
+    color: var(--jade);
+    font-size: 0.85rem;
+    font-weight: 900;
+  }
+
+  .payment-heading {
+    margin-bottom: 2rem;
+  }
+
+  .payment-heading h1 {
+    width: min(720px, 100%);
+  }
+
+  .payment-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 1.25rem;
+    align-items: start;
+  }
+
+  .payment-form,
+  .checkout-card {
+    padding: clamp(1.2rem, 3vw, 2rem);
+    background: white;
+    border: 1px solid var(--line);
+    box-shadow: 0 18px 60px rgba(0, 63, 53, 0.08);
+  }
+
+  .payment-form h2,
+  .checkout-card h2 {
+    margin-bottom: 1rem;
+    color: var(--jade);
+    font-size: 1.35rem;
+  }
+
+  .payment-form button {
+    margin-top: 1rem;
+    width: 100%;
+    border-radius: 0;
+    text-transform: uppercase;
+  }
+
+  .checkout-card {
+    position: sticky;
+    top: 1rem;
+    display: grid;
+    gap: 1rem;
+  }
+
+  .cart-row,
+  .total-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink-soft);
+  }
+
+  .total-row {
+    color: var(--jade);
+    font-size: 1.15rem;
+    font-weight: 900;
+  }
+
+  .checkout-card a {
+    color: var(--clay);
+    font-weight: 900;
+  }
+
+  @media (max-width: 860px) {
+    .payment-layout { grid-template-columns: 1fr; }
+    .checkout-card { position: static; }
+  }
+</style>

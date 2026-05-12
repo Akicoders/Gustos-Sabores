@@ -3,18 +3,32 @@ import Layout from '../layouts/Layout.astro';
 const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
 ---
 
-<Layout title="Reservas | Gustos y Sabores">
-  <section class="page">
-    <span class="eyebrow">Reserva de mesa</span>
-    <h1>Agenda tu visita</h1>
-    <form id="reservation-form" class="panel form-grid" data-api={apiUrl}>
-      <label>Nombre completo<input name="customer_name" required /></label>
-      <label>Email<input name="customer_email" type="email" required /></label>
-      <label>Telefono<input name="customer_phone" required /></label>
-      <label>Personas<input name="party_size" type="number" min="1" value="2" required /></label>
-      <label class="full">Fecha y hora<input name="reserved_at" type="datetime-local" required /></label>
-      <label class="full">Notas<textarea name="notes" placeholder="Preferencias, ocasion especial o restricciones."></textarea></label>
-      <button type="submit">Registrar reserva</button>
+<Layout title="Contacto | Gustos y Sabores">
+  <section class="contact-page page">
+    <div class="corner" aria-hidden="true"></div>
+    <div class="contact-heading">
+      <span class="eyebrow">CONTACTO</span>
+      <h1>Ubicación</h1>
+      <p>Av. Zarumilla N°091 - Urb. El Ingeniero I, Chiclayo, Perú</p>
+    </div>
+
+    <div class="map-card" aria-label="Mapa referencial">
+      <div class="map-grid"></div>
+      <strong>Gustos y Sabores</strong>
+    </div>
+
+    <form id="reservation-form" class="contact-form" data-api={apiUrl}>
+      <h2>Para consultas</h2>
+      <p>+52 912345678 | info@gustosysabores@gmail.com</p>
+      <div class="form-grid">
+        <label>Nombre<input name="customer_name" required /></label>
+        <label>Email<input name="customer_email" type="email" required /></label>
+        <label>Telefono<input name="customer_phone" required /></label>
+        <label>Personas<input name="party_size" type="number" min="1" value="2" required /></label>
+        <label class="full">Fecha y hora<input name="reserved_at" type="datetime-local" required /></label>
+        <label class="full">Mensaje<textarea name="notes" placeholder="Reserva, consulta o comentario."></textarea></label>
+      </div>
+      <button type="submit">Enviar</button>
       <p id="reservation-status" class="status"></p>
     </form>
   </section>
@@ -39,9 +53,97 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
       });
       if (!response.ok) throw new Error('Reserva rechazada');
       form.reset();
-      status.textContent = 'Reserva registrada como pendiente.';
+      status.textContent = 'Mensaje enviado. Reserva registrada como pendiente.';
     } catch (error) {
-      status.textContent = 'No se pudo registrar la reserva.';
+      status.textContent = 'No se pudo enviar la consulta.';
     }
   });
 </script>
+
+<style>
+  .contact-page {
+    position: relative;
+    text-align: center;
+  }
+
+  .corner {
+    position: absolute;
+    top: 2rem;
+    right: 1rem;
+    width: min(420px, 44vw);
+    height: 280px;
+    border-top: 18px solid var(--jade-3);
+    border-right: 18px solid var(--jade-3);
+  }
+
+  .contact-heading {
+    position: relative;
+    z-index: 1;
+    margin-bottom: 1.5rem;
+  }
+
+  .map-card {
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-height: 220px;
+    margin-bottom: 2rem;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background: #f2f2f2;
+  }
+
+  .map-grid {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(90deg, rgba(0,0,0,0.12) 1px, transparent 1px),
+      linear-gradient(rgba(0,0,0,0.12) 1px, transparent 1px),
+      #eeeeee;
+    background-size: 42px 42px;
+    transform: rotate(-2deg) scale(1.1);
+  }
+
+  .map-card strong {
+    position: relative;
+    padding: 0.7rem 1rem;
+    color: white;
+    background: var(--jade);
+    border-radius: 999px;
+  }
+
+  .contact-form {
+    padding: clamp(1.2rem, 3vw, 2rem);
+    color: white;
+    background: var(--jade);
+  }
+
+  .contact-form h2 {
+    margin-bottom: 0.25rem;
+  }
+
+  .contact-form p,
+  .contact-form label {
+    color: rgba(255, 255, 255, 0.82);
+  }
+
+  .contact-form input,
+  .contact-form textarea {
+    border-color: rgba(255, 255, 255, 0.28);
+    color: white;
+    background: transparent;
+  }
+
+  .contact-form input::placeholder,
+  .contact-form textarea::placeholder {
+    color: rgba(255, 255, 255, 0.55);
+  }
+
+  .contact-form button {
+    margin-top: 1rem;
+    min-width: 160px;
+    color: var(--jade);
+    background: white;
+    box-shadow: none;
+  }
+</style>
