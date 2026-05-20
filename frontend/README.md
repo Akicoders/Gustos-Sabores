@@ -1,4 +1,4 @@
-# Gustos y Sabores - Plataforma de Gestión de Pedidos y Reservas (MVP 1)
+# Gustos y Sabores - Plataforma de Gestión de Pedidos y Reservas
 
 Bienvenido a la documentación técnica oficial de **Gustos y Sabores**, un sistema moderno de gestión de reservas, pedidos y administración interna diseñado para optimizar las operaciones de nuestro restaurante. 
 
