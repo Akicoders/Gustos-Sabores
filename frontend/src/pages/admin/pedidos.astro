@@ -79,12 +79,22 @@ const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
 
   let pedidos = [];
 
+  function mensajeTabla(texto) {
+    const tbody = document.getElementById('pedidos-tbody');
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--ink-soft)">${texto}</td></tr>`;
+  }
+
   async function cargarPedidos(estado = '') {
-    const url = estado ? `${api}/orders/todos/?estado=${estado}` : `${api}/orders/todos/`;
-    const res = await fetch(url, { headers: { Authorization: `Token ${token}` } });
-    if (!res.ok) return;
-    pedidos = await res.json();
-    renderTabla();
+    mensajeTabla('<span class="admin-spinner"></span> Cargando pedidos...');
+    try {
+      const url = estado ? `${api}/orders/todos/?estado=${estado}` : `${api}/orders/todos/`;
+      const res = await fetch(url, { headers: { Authorization: `Token ${token}` } });
+      if (!res.ok) throw new Error();
+      pedidos = await res.json();
+      renderTabla();
+    } catch {
+      mensajeTabla('No se pudieron cargar los pedidos. Verifica tu sesión e intenta de nuevo.');
+    }
   }
 
   function renderTabla() {

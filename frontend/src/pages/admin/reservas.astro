@@ -99,14 +99,20 @@ const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
   let reservas = [];
 
   async function cargar(estado = '') {
-    const res = await fetch(`${api}/reservations/`, {
-      headers: { Authorization: `Token ${token}` },
-    });
-    if (!res.ok) return;
-    let data = await res.json();
-    if (estado) data = data.filter(r => r.status === estado);
-    reservas = data;
-    render();
+    const tbody = document.getElementById('reservas-tbody');
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--ink-soft)"><span class="admin-spinner"></span> Cargando reservas...</td></tr>';
+    try {
+      const res = await fetch(`${api}/reservations/`, {
+        headers: { Authorization: `Token ${token}` },
+      });
+      if (!res.ok) throw new Error();
+      let data = await res.json();
+      if (estado) data = data.filter(r => r.status === estado);
+      reservas = data;
+      render();
+    } catch {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--ink-soft)">No se pudieron cargar las reservas. Verifica tu sesión.</td></tr>';
+    }
   }
 
   function render() {

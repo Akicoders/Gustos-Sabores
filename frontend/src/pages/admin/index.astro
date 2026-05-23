@@ -221,7 +221,6 @@ const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
     let svgCircles = '';
     entries.forEach(([key, val], index) => {
       const pct = val / total;
-      const strokeLength = pct * circumference;
       const strokeOffset = circumference - (accumPercent * circumference);
       accumPercent += pct;
       const color = palette[index % palette.length];
@@ -342,7 +341,7 @@ const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
 
     // Puntos interactivos con hover glow
     let interactivePoints = '';
-    points.forEach((p, i) => {
+    points.forEach((p) => {
       interactivePoints += `
         <g class="trend-point" data-revenue="S/ ${p.revenue.toFixed(2)}" data-date="${p.date}">
           <circle cx="${p.x}" cy="${p.y}" r="8" fill="rgba(0,63,53,0.15)" style="opacity:0; transition:opacity 0.2s;" class="point-glow" />
@@ -434,10 +433,11 @@ const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
   }
 
   async function load() {
+   try {
     const res = await fetch(`${api}/dashboard/kpis/`, {
       headers: { Authorization: `Token ${token}` },
     });
-    if (!res.ok) return;
+    if (!res.ok) throw new Error();
     const d = await res.json();
 
     // Actualizar KPIs de Resumen
@@ -542,6 +542,10 @@ const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
         </div>
       `;
     }).join('') || '<p style="color:var(--ink-soft); font-size:0.8rem; text-align:center; padding:1rem 0;">Sin actividad reciente</p>';
+   } catch {
+     const grid = document.getElementById('kpi-grid');
+     if (grid) grid.innerHTML = '<div class="alert alert-error" style="grid-column:1/-1">No se pudieron cargar los indicadores. Verifica tu sesión e intenta recargar la página.</div>';
+   }
   }
 
   load();
