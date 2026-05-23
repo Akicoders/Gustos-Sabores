@@ -8,7 +8,7 @@ const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
     <div class="kpi-card"><span class="kpi-label">Cargando...</span></div>
   </div>
 
-  <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+  <div class="dashboard-panels-grid">
     <div class="admin-card">
       <div class="section-header">
         <span class="section-title">Pedidos por estado</span>
@@ -22,6 +22,20 @@ const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
       <div id="reservas-status-list"></div>
     </div>
   </div>
+
+  <style>
+    .dashboard-panels-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 860px) {
+      .dashboard-panels-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </AdminLayout>
 
 <script define:vars={{ api }}>

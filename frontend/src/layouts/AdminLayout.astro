@@ -87,7 +87,7 @@ const { title = 'Panel Admin | Gustos y Sabores' } = Astro.props;
   } else {
     const user = JSON.parse(userRaw);
     if (user.role === 'customer') {
-      window.location.href = '/dashboard';
+      window.location.href = '/';
     }
     // Mostrar nombre y rol en la interfaz
     const nameEl = document.getElementById('admin-user-name');
@@ -375,10 +375,11 @@ const { title = 'Panel Admin | Gustos y Sabores' } = Astro.props;
   }
 
   .kpi-value {
-    font-size: 2rem;
+    font-size: clamp(1.3rem, 2.8vw, 2.1rem);
     font-weight: 900;
     color: var(--jade);
-    line-height: 1;
+    line-height: 1.1;
+    word-break: break-word;
   }
 
   .kpi-sub { font-size: 0.78rem; color: var(--ink-soft); }
