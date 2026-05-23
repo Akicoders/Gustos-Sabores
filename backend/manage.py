@@ -5,6 +5,8 @@ import sys
 
 
 def main():
+    from django.db.backends.mysql.features import DatabaseFeatures
+    DatabaseFeatures.supports_combined_alters = False
     """Run administrative tasks."""
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
     try:
