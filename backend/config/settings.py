@@ -15,9 +15,9 @@ def get_env_list(name: str, default: str = "") -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-secret-key")
-DEBUG = os.getenv("DJANGO_DEBUG", "True") == "True"
-ALLOWED_HOSTS = get_env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,backend")
+SECRET_KEY = os.getenv("SECRET_KEY", os.getenv("DJANGO_SECRET_KEY", "dev-secret-key"))
+DEBUG = os.getenv("DEBUG", os.getenv("DJANGO_DEBUG", "True")) == "True"
+ALLOWED_HOSTS = get_env_list("ALLOWED_HOSTS", os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,backend"))
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -71,18 +71,19 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-if os.getenv("MYSQL_HOST"):
+mysql_host = os.getenv("MYSQL_DB_HOST", os.getenv("MYSQL_HOST"))
+if mysql_host:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.mysql",
-            "NAME": os.getenv("MYSQL_DATABASE", "gustos_db"),
-            "USER": os.getenv("MYSQL_USER", "gustos_user"),
-            "PASSWORD": os.getenv("MYSQL_PASSWORD", "gustos_pass"),
-            "HOST": os.getenv("MYSQL_HOST", "mysql"),
-            "PORT": os.getenv("MYSQL_PORT", "3306"),
+            "NAME": os.getenv("MYSQL_DB_NAME", os.getenv("MYSQL_DATABASE", "gustos_db")),
+            "USER": os.getenv("MYSQL_DB_USER", os.getenv("MYSQL_USER", "gustos_user")),
+            "PASSWORD": os.getenv("MYSQL_DB_PASSWORD", os.getenv("MYSQL_PASSWORD", "gustos_pass")),
+            "HOST": mysql_host,
+            "PORT": os.getenv("MYSQL_DB_PORT", os.getenv("MYSQL_PORT", "3306")),
             "OPTIONS": {
                 "charset": "utf8mb4",
-                "ssl": {"ssl_mode": "VERIFY_IDENTITY"} if "tidbcloud" in os.getenv("MYSQL_HOST", "") else {}
+                "ssl": {"ssl_mode": "VERIFY_IDENTITY"} if "tidbcloud" in mysql_host else {}
             },
         }
     }
@@ -113,7 +114,10 @@ MEDIA_ROOT = ROOT_DIR / "backend" / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "users.User"
-CORS_ALLOWED_ORIGINS = get_env_list("DJANGO_CORS_ALLOWED_ORIGINS", "http://localhost:4321")
+CORS_ALLOWED_ORIGINS = get_env_list(
+    "CORS_ALLOWED_ORIGINS",
+    os.getenv("DJANGO_CORS_ALLOWED_ORIGINS", "http://localhost:4321")
+)
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ("rest_framework.authentication.TokenAuthentication",),
