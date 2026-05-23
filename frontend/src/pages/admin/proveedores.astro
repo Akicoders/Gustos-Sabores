@@ -140,7 +140,9 @@ const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
 
   document.getElementById('btn-prov-cancel').onclick = () => document.getElementById('modal-prov').style.display = 'none';
 
-  document.getElementById('btn-prov-save').onclick = async () => {
+  const btnSave = document.getElementById('btn-prov-save');
+  btnSave.onclick = async () => {
+    if (btnSave.disabled) return;
     const id = document.getElementById('prov-id').value;
     const errEl = document.getElementById('modal-prov-error');
     const body = {
@@ -153,15 +155,27 @@ const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
       notes: document.getElementById('prov-notes').value,
       is_active: document.getElementById('prov-active').value === 'true',
     };
+    btnSave.disabled = true;
+    btnSave.textContent = 'Guardando...';
     const url = id ? `${api}/suppliers/${id}/` : `${api}/suppliers/`;
-    const res = await fetch(url, {
-      method: id ? 'PUT' : 'POST',
-      headers: { Authorization: `Token ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) { const err = await res.json(); errEl.textContent = JSON.stringify(err); errEl.style.display = 'block'; return; }
-    document.getElementById('modal-prov').style.display = 'none';
-    cargar();
+    try {
+      const res = await fetch(url, {
+        method: id ? 'PUT' : 'POST',
+        headers: { Authorization: `Token ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        errEl.textContent = JSON.stringify(err);
+        errEl.style.display = 'block';
+        return;
+      }
+      document.getElementById('modal-prov').style.display = 'none';
+      cargar();
+    } finally {
+      btnSave.disabled = false;
+      btnSave.textContent = 'Guardar';
+    }
   };
 
   document.getElementById('btn-prov-delete').onclick = async () => {
