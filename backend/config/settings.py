@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 import pymysql
@@ -94,6 +95,24 @@ else:
             "NAME": BASE_DIR / "db.sqlite3",
         }
     }
+
+# Tests run against an in-memory SQLite database with the schema created
+# directly from the models. This keeps the suite fast, isolated, and
+# independent of the local MySQL instance and migration state.
+if "test" in sys.argv:
+    DATABASES["default"] = {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": ":memory:",
+    }
+
+    class _DisableMigrations:
+        def __contains__(self, _item):
+            return True
+
+        def __getitem__(self, _item):
+            return None
+
+    MIGRATION_MODULES = _DisableMigrations()
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
