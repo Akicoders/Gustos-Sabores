@@ -4,33 +4,106 @@ const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
 ---
 
 <AdminLayout title="Dashboard | Gustos y Sabores">
+  <!-- KPIs de Resumen con hover styling -->
   <div class="kpi-grid" id="kpi-grid">
-    <div class="kpi-card"><span class="kpi-label">Cargando...</span></div>
+    <div class="kpi-card"><span class="kpi-label">Cargando KPIs...</span></div>
   </div>
 
-  <div class="dashboard-panels-grid">
-    <div class="admin-card">
-      <div class="section-header">
-        <span class="section-title">Pedidos por estado</span>
+  <!-- Estructura Bento Grid -->
+  <div class="bento-grid">
+    <!-- Columna Izquierda (Principal) -->
+    <div class="bento-col-main" style="display:flex; flex-direction:column; gap:1.5rem;">
+      
+      <!-- Gráfico de Ingresos Semanales (Área con Gradiente) -->
+      <div class="admin-card chart-card-glow" style="flex:1;">
+        <div class="section-header">
+          <div>
+            <span class="section-title">Ingresos Semanales</span>
+            <p style="font-size:0.75rem; color:var(--ink-soft); margin-top:2px;">Tendencia diaria de facturación (no cancelados)</p>
+          </div>
+          <span style="font-size:0.72rem; font-weight:800; background:rgba(227,150,46,0.15); color:var(--accent); padding:0.25rem 0.65rem; border-radius:99px; text-transform:uppercase;">Últimos 7 días</span>
+        </div>
+        <div id="revenue-trend-chart" style="margin-top:1rem; min-height:220px; display:grid; place-items:center;">
+          <span style="color:var(--ink-soft); font-size:0.85rem;">Cargando tendencia...</span>
+        </div>
       </div>
-      <div class="panel-chart-container">
-        <div id="orders-donut" class="donut-chart"></div>
-        <div id="orders-status-list" class="status-list-col"></div>
+
+      <!-- Fila de Estados (Pedidos y Reservas) -->
+      <div class="bento-row-2">
+        <!-- Pedidos por Estado -->
+        <div class="admin-card">
+          <div class="section-header" style="margin-bottom:0.8rem;">
+            <span class="section-title">Pedidos por Estado</span>
+          </div>
+          <div class="panel-chart-container">
+            <div id="orders-donut" class="donut-chart"></div>
+            <div id="orders-status-list" class="status-list-col"></div>
+          </div>
+        </div>
+
+        <!-- Reservas por Estado -->
+        <div class="admin-card">
+          <div class="section-header" style="margin-bottom:0.8rem;">
+            <span class="section-title">Reservas por Estado</span>
+          </div>
+          <div class="panel-chart-container">
+            <div id="reservations-donut" class="donut-chart"></div>
+            <div id="reservas-status-list" class="status-list-col"></div>
+          </div>
+        </div>
       </div>
+
     </div>
-    <div class="admin-card">
-      <div class="section-header">
-        <span class="section-title">Reservas por estado</span>
+
+    <!-- Columna Derecha (Lateral) -->
+    <div class="bento-col-side" style="display:flex; flex-direction:column; gap:1.5rem;">
+      
+      <!-- Actividad Reciente combinada -->
+      <div class="admin-card" style="flex:1; display:flex; flex-direction:column;">
+        <div class="section-header" style="margin-bottom:1rem;">
+          <div>
+            <span class="section-title">Actividad Reciente</span>
+            <p style="font-size:0.72rem; color:var(--ink-soft); margin-top:1px;">Flujo en tiempo real</p>
+          </div>
+        </div>
+        <div id="recent-activity-feed" style="display:flex; flex-direction:column; gap:0.2rem; flex:1; overflow-y:auto; max-height:360px; padding-right:4px;">
+          <span style="color:var(--ink-soft); font-size:0.85rem; text-align:center; padding:1.5rem 0;">Cargando actividad...</span>
+        </div>
       </div>
-      <div class="panel-chart-container">
-        <div id="reservations-donut" class="donut-chart"></div>
-        <div id="reservas-status-list" class="status-list-col"></div>
+
+      <!-- Menú por Categoría -->
+      <div class="admin-card">
+        <div class="section-header" style="margin-bottom:1rem;">
+          <span class="section-title">Platos por Categoría</span>
+        </div>
+        <div id="category-bars-list" style="display:flex; flex-direction:column; gap:0.2rem;">
+          <span style="color:var(--ink-soft); font-size:0.85rem;">Cargando categorías...</span>
+        </div>
       </div>
+
+      <!-- Canales de Venta -->
+      <div class="admin-card">
+        <div class="section-header" style="margin-bottom:0.5rem;">
+          <span class="section-title">Canal de Venta</span>
+        </div>
+        <div class="panel-chart-container" style="justify-content:center; gap:1rem;">
+          <div id="order-types-donut" class="donut-chart"></div>
+          <div id="order-types-list" class="status-list-col" style="flex:1; min-width:110px;"></div>
+        </div>
+      </div>
+
     </div>
   </div>
 
   <style>
-    .dashboard-panels-grid {
+    .bento-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .bento-row-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 1.5rem;
@@ -38,53 +111,57 @@ const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
 
     .panel-chart-container {
       display: flex;
-      gap: 2rem;
+      gap: 1.2rem;
       align-items: center;
       justify-content: space-around;
       flex-wrap: wrap;
     }
 
     .status-list-col {
-      flex: 1;
-      min-width: 180px;
+      flex: 1.2;
+      min-width: 140px;
     }
 
-    /* Donut Chart styles */
+    /* Donut Chart wrappers */
     .donut-chart {
       display: grid;
       place-items: center;
-      min-height: 160px;
+      min-height: 150px;
       flex-shrink: 0;
     }
 
-    .donut {
-      display: grid;
-      place-items: center;
-      width: 140px;
-      height: 140px;
-      border-radius: 50%;
-      box-shadow: inset 0 0 0 22px white, 0 8px 24px rgba(0, 63, 53, 0.08);
-      position: relative;
+    /* KPI styling upgrades */
+    .kpi-card {
+      transition: transform 0.2s cubic-bezier(0.1, 0.8, 0.2, 1), box-shadow 0.2s;
+    }
+    .kpi-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 24px rgba(0, 63, 53, 0.12);
+      border-color: var(--jade-3);
     }
 
-    .donut.empty {
-      background: rgba(0, 63, 53, 0.12);
+    /* Custom CSS animations for progress bars */
+    :global(.category-progress-bar) {
+      animation: barGrow 1s cubic-bezier(0.1, 0.8, 0.2, 1) forwards;
     }
 
-    .donut span {
-      display: grid;
-      place-items: center;
-      width: 76px;
-      height: 76px;
-      border-radius: 50%;
-      color: var(--jade);
-      background: white;
-      font-size: 1.8rem;
-      font-weight: 900;
+    @keyframes barGrow {
+      from { width: 0%; }
     }
 
-    @media (max-width: 860px) {
-      .dashboard-panels-grid {
+    /* SVG point highlight styling */
+    :global(.trend-point:hover .point-glow) {
+      opacity: 1 !important;
+    }
+
+    @media (max-width: 1100px) {
+      .bento-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 680px) {
+      .bento-row-2 {
         grid-template-columns: 1fr;
       }
       .panel-chart-container {
@@ -98,39 +175,262 @@ const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
 <script define:vars={{ api }}>
   const token = localStorage.getItem('gustos_token');
   const fmt = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' });
-  const palette = ['#003f35', '#00725f', '#e3962e', '#ac3c24', '#6f8f87'];
+  const palette = ['#003f35', '#00725f', '#e3962e', '#ac3c24', '#6f8f87', '#bf9e76'];
 
   const STATUS_LABELS = {
-    pending: 'Pendiente', preparing: 'En preparación', ready: 'Listo',
-    delivered: 'Entregado', cancelled: 'Cancelado',
+    pending: 'Pendiente', 
+    preparing: 'En preparación', 
+    ready: 'Listo',
+    delivered: 'Entregado', 
+    cancelled: 'Cancelado',
     confirmed: 'Confirmada',
+    local: 'Salón', 
+    delivery: 'Delivery'
   };
 
-  function renderDonut(target, data) {
+  const STATUS_BADGES = {
+    pending: 'badge-pending',
+    preparing: 'badge-preparing',
+    ready: 'badge-ready',
+    delivered: 'badge-delivered',
+    cancelled: 'badge-cancelled',
+    confirmed: 'badge-confirmed'
+  };
+
+  // 1. Renderizar Donut SVG Premium
+  function renderSvgDonut(targetId, data, title = 'Total') {
+    const target = document.getElementById(targetId);
+    if (!target) return;
     const entries = Object.entries(data || {});
     const total = entries.reduce((sum, [, value]) => sum + value, 0);
+    
     if (!total) {
-      const donut = document.createElement('div');
-      donut.className = 'donut empty';
-      const span = document.createElement('span');
-      span.textContent = '0';
-      donut.append(span);
-      target.replaceChildren(donut);
+      target.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:140px;color:var(--ink-soft);">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.4;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+          <p style="margin-top:0.4rem;font-size:0.75rem;">Sin datos</p>
+        </div>
+      `;
       return;
     }
-    let cursor = 0;
-    const stops = entries.map(([, value], index) => {
-      const start = cursor;
-      cursor += (value / total) * 100;
-      return `${palette[index % palette.length]} ${start}% ${cursor}%`;
-    }).join(', ');
-    const donut = document.createElement('div');
-    donut.className = 'donut';
-    donut.style.background = `conic-gradient(${stops})`;
-    const span = document.createElement('span');
-    span.textContent = String(total);
-    donut.append(span);
-    target.replaceChildren(donut);
+    
+    const r = 36;
+    const circumference = 2 * Math.PI * r; // ~226.19
+    let accumPercent = 0;
+    
+    let svgCircles = '';
+    entries.forEach(([key, val], index) => {
+      const pct = val / total;
+      const strokeLength = pct * circumference;
+      const strokeOffset = circumference - (accumPercent * circumference);
+      accumPercent += pct;
+      const color = palette[index % palette.length];
+      
+      svgCircles += `
+        <circle 
+          cx="50" 
+          cy="50" 
+          r="${r}" 
+          fill="transparent" 
+          stroke="${color}" 
+          stroke-width="10" 
+          stroke-dasharray="${circumference}" 
+          stroke-dashoffset="${strokeOffset}" 
+          transform="rotate(-90 50 50)"
+          class="donut-segment"
+          data-label="${STATUS_LABELS[key] ?? key}"
+          data-value="${val}"
+          data-percent="${(pct * 100).toFixed(0)}%"
+          stroke-linecap="${pct > 0.05 ? 'round' : 'butt'}"
+          style="transition: stroke-width 0.2s, stroke 0.2s; cursor: pointer;"
+        />
+      `;
+    });
+
+    target.innerHTML = `
+      <div class="donut-chart-wrapper" style="position:relative; width:130px; height:130px;">
+        <svg width="100%" height="100%" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="${r}" fill="transparent" stroke="#f1f5f9" stroke-width="10" />
+          ${svgCircles}
+          <circle cx="50" cy="50" r="29" fill="white" style="filter: drop-shadow(0 4px 6px rgba(0,63,53,0.03));" />
+        </svg>
+        <div class="donut-center-text" style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none;">
+          <span class="donut-center-val" style="font-size:1.5rem; font-weight:900; color:var(--jade); line-height:1;">${total}</span>
+          <span class="donut-center-lbl" style="font-size:0.62rem; font-weight:800; color:var(--ink-soft); text-transform:uppercase; margin-top:2px;">${title}</span>
+        </div>
+      </div>
+    `;
+    
+    // Configurar hover interactivo en el donut
+    const segments = target.querySelectorAll('.donut-segment');
+    segments.forEach(seg => {
+      seg.addEventListener('mouseenter', () => {
+        segments.forEach(s => s.setAttribute('stroke-width', '8'));
+        seg.setAttribute('stroke-width', '13');
+        const val = seg.getAttribute('data-value');
+        const label = seg.getAttribute('data-label');
+        
+        const valEl = target.querySelector('.donut-center-val');
+        const lblEl = target.querySelector('.donut-center-lbl');
+        if (valEl && lblEl) {
+          valEl.textContent = val;
+          lblEl.textContent = label;
+          lblEl.style.color = seg.getAttribute('stroke');
+        }
+      });
+      seg.addEventListener('mouseleave', () => {
+        segments.forEach(s => s.setAttribute('stroke-width', '10'));
+        const valEl = target.querySelector('.donut-center-val');
+        const lblEl = target.querySelector('.donut-center-lbl');
+        if (valEl && lblEl) {
+          valEl.textContent = total;
+          lblEl.textContent = title;
+          lblEl.style.color = 'var(--ink-soft)';
+        }
+      });
+    });
+  }
+
+  // 2. Renderizar Gráfico de Área Lineal SVG (Ingresos Semanales)
+  function renderRevenueTrend(targetId, trend) {
+    const target = document.getElementById(targetId);
+    if (!target) return;
+    if (!trend || !trend.length) {
+      target.innerHTML = '<p style="color:var(--ink-soft); font-size:0.85rem;">Sin datos de tendencia</p>';
+      return;
+    }
+
+    const width = 600;
+    const height = 220;
+    const left = 45;
+    const right = 20;
+    const top = 20;
+    const bottom = 30;
+    const chartW = width - left - right;
+    const chartH = height - top - bottom;
+
+    const maxVal = Math.max(...trend.map(d => d.revenue), 10) * 1.15; // 15% holgura superior
+
+    // Generar coordenadas para los 7 días
+    const points = trend.map((d, i) => {
+      const x = left + (i / (trend.length - 1)) * chartW;
+      const y = top + chartH - (d.revenue / maxVal) * chartH;
+      return { x, y, ...d };
+    });
+
+    // Línea SVG
+    const linePath = 'M ' + points.map(p => `${p.x} ${p.y}`).join(' L ');
+    // Área con gradiente
+    const areaPath = linePath + ` L ${points[points.length-1].x} ${top+chartH} L ${points[0].x} ${top+chartH} Z`;
+
+    // Cuadrícula Horizontal
+    let grids = '';
+    const gridTicks = 4;
+    for (let i = 0; i <= gridTicks; i++) {
+      const y = top + (i / gridTicks) * chartH;
+      const val = maxVal - (i / gridTicks) * maxVal;
+      grids += `
+        <line x1="${left}" y1="${y}" x2="${width - right}" y2="${y}" stroke="var(--line)" stroke-width="1" stroke-opacity="0.6" stroke-dasharray="4 4" />
+        <text x="${left - 8}" y="${y + 3}" font-size="8.5" fill="var(--ink-soft)" text-anchor="end" font-weight="800">${fmt.format(val).replace('PEN', '').trim()}</text>
+      `;
+    }
+
+    // Etiquetas X
+    const xLabels = points.map(p => `
+      <text x="${p.x}" y="${height - 8}" font-size="9" fill="var(--ink-soft)" text-anchor="middle" font-weight="900">${p.day_name}</text>
+    `).join('');
+
+    // Puntos interactivos con hover glow
+    let interactivePoints = '';
+    points.forEach((p, i) => {
+      interactivePoints += `
+        <g class="trend-point" data-revenue="S/ ${p.revenue.toFixed(2)}" data-date="${p.date}">
+          <circle cx="${p.x}" cy="${p.y}" r="8" fill="rgba(0,63,53,0.15)" style="opacity:0; transition:opacity 0.2s;" class="point-glow" />
+          <circle cx="${p.x}" cy="${p.y}" r="4" fill="var(--accent)" stroke="white" stroke-width="1.8" />
+          <circle cx="${p.x}" cy="${p.y}" r="16" fill="transparent" style="cursor:pointer;" class="point-trigger" />
+        </g>
+      `;
+    });
+
+    target.innerHTML = `
+      <div style="position:relative; width:100%; height:100%;">
+        <svg width="100%" height="100%" viewBox="0 0 ${width} ${height}" style="overflow:visible;" preserveAspectRatio="xMinYMin meet">
+          <defs>
+            <linearGradient id="area-grad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--jade-3)" stop-opacity="0.25" />
+              <stop offset="100%" stop-color="var(--jade-3)" stop-opacity="0.0" />
+            </linearGradient>
+          </defs>
+          <!-- Grids -->
+          ${grids}
+          <!-- Área del Gradiente -->
+          <path d="${areaPath}" fill="url(#area-grad)" />
+          <!-- Curva Principal -->
+          <path d="${linePath}" fill="none" stroke="var(--jade)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+          <!-- Eje X -->
+          ${xLabels}
+          <!-- Puntos -->
+          ${interactivePoints}
+        </svg>
+        <!-- Tooltip dinámico -->
+        <div class="trend-tooltip" style="position:absolute; display:none; background:var(--jade); color:white; padding:0.4rem 0.6rem; border-radius:8px; font-size:0.75rem; font-weight:800; pointer-events:none; box-shadow:0 8px 20px rgba(0,0,0,0.15); z-index:5;"></div>
+      </div>
+    `;
+
+    // Lógica del tooltip en el gráfico lineal
+    const groups = target.querySelectorAll('.trend-point');
+    const tooltip = target.querySelector('.trend-tooltip');
+    
+    groups.forEach((g, i) => {
+      const trigger = g.querySelector('.point-trigger');
+      const glow = g.querySelector('.point-glow');
+      trigger.addEventListener('mouseenter', () => {
+        glow.style.opacity = '1';
+        const revenue = g.getAttribute('data-revenue');
+        const date = g.getAttribute('data-date');
+        
+        tooltip.innerHTML = `<div style="color:var(--accent); font-weight:900;">${revenue}</div><div style="font-size:0.62rem;opacity:0.8;margin-top:2px;">${date}</div>`;
+        tooltip.style.display = 'block';
+        
+        // Calcular escala responsiva real
+        const p = points[i];
+        const rect = target.getBoundingClientRect();
+        const scaleX = rect.width / width;
+        const scaleY = rect.height / height;
+        const xPos = p.x * scaleX;
+        const yPos = p.y * scaleY - 45;
+        
+        tooltip.style.left = `${xPos - tooltip.clientWidth/2}px`;
+        tooltip.style.top = `${yPos}px`;
+      });
+      trigger.addEventListener('mouseleave', () => {
+        glow.style.opacity = '0';
+        tooltip.style.display = 'none';
+      });
+    });
+  }
+
+  // 3. Renderizar Barras de Categorías
+  function renderCategoryBars(targetId, data) {
+    const target = document.getElementById(targetId);
+    if (!target) return;
+    const entries = Object.entries(data || {});
+    const maxVal = Math.max(...entries.map(([, v]) => v), 1);
+    
+    target.innerHTML = entries.map(([category, count]) => {
+      const pct = (count / maxVal) * 100;
+      return `
+        <div style="margin-bottom: 0.85rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; font-weight:800; margin-bottom:0.25rem;">
+            <span style="color:var(--ink);">${category}</span>
+            <span style="color:var(--jade-3);">${count} plato${count !== 1 ? 's' : ''}</span>
+          </div>
+          <div style="width:100%; height:8px; background:#f1f5f9; border-radius:999px; overflow:hidden;">
+            <div style="width:${pct}%; height:100%; background:linear-gradient(90deg, var(--jade-2), var(--jade-3)); border-radius:999px;" class="category-progress-bar"></div>
+          </div>
+        </div>
+      `;
+    }).join('') || '<p style="color:var(--ink-soft); font-size:0.85rem;">Sin datos</p>';
   }
 
   async function load() {
@@ -140,52 +440,108 @@ const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
     if (!res.ok) return;
     const d = await res.json();
 
+    // Actualizar KPIs de Resumen
     document.getElementById('kpi-grid').innerHTML = `
       <div class="kpi-card">
-        <span class="kpi-label">Total pedidos</span>
+        <span class="kpi-label">Total Pedidos</span>
         <span class="kpi-value">${d.orders_total}</span>
       </div>
       <div class="kpi-card">
-        <span class="kpi-label">Ingresos</span>
-        <span class="kpi-value" style="font-size:1.5rem">${fmt.format(d.orders_revenue)}</span>
+        <span class="kpi-label">Ingresos Netos</span>
+        <span class="kpi-value" style="font-size:1.55rem;">${fmt.format(d.orders_revenue)}</span>
       </div>
       <div class="kpi-card">
-        <span class="kpi-label">Total reservas</span>
+        <span class="kpi-label">Total Reservas</span>
         <span class="kpi-value">${d.reservations_total}</span>
       </div>
       <div class="kpi-card">
-        <span class="kpi-label">Platos disponibles</span>
+        <span class="kpi-label">Platos Disponibles</span>
         <span class="kpi-value">${d.available_dishes}</span>
         <span class="kpi-sub">de ${d.dishes_total} en total</span>
       </div>
     `;
 
-    // Renderizar gráficos
-    renderDonut(document.getElementById('orders-donut'), d.orders_by_status);
-    renderDonut(document.getElementById('reservations-donut'), d.reservations_by_status);
+    // Renderizar Donuts SVG Premium
+    renderSvgDonut('orders-donut', d.orders_by_status, 'Pedidos');
+    renderSvgDonut('reservations-donut', d.reservations_by_status, 'Reservas');
+    renderSvgDonut('order-types-donut', d.order_types, 'Canal');
 
-    // Listas con indicadores de color al costado
+    // Renderizar gráfico semanal
+    renderRevenueTrend('revenue-trend-chart', d.revenue_trend);
+
+    // Renderizar barras horizontales
+    renderCategoryBars('category-bars-list', d.menu_by_category);
+
+    // Listado de leyendas con indicadores de color al costado
     document.getElementById('orders-status-list').innerHTML =
       Object.entries(d.orders_by_status).map(([k, v], index) =>
-        `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0;border-bottom:1px solid var(--line)">
-          <span style="display:flex;align-items:center;gap:0.4rem">
-            <i style="width:0.6rem;height:0.6rem;border-radius:50%;background:${palette[index % palette.length]};display:inline-block"></i>
+        `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.45rem 0;border-bottom:1px solid var(--line); font-size:0.82rem;">
+          <span style="display:flex;align-items:center;gap:0.45rem; font-weight:700;">
+            <i style="width:0.55rem;height:0.55rem;border-radius:50%;background:${palette[index % palette.length]};display:inline-block"></i>
             ${STATUS_LABELS[k] ?? k}
           </span>
-          <strong>${v}</strong>
+          <strong style="font-weight:900;">${v}</strong>
         </div>`
-      ).join('') || '<p style="color:var(--ink-soft);font-size:0.9rem">Sin datos aún</p>';
+      ).join('') || '<p style="color:var(--ink-soft);font-size:0.8rem">Sin pedidos aún</p>';
 
     document.getElementById('reservas-status-list').innerHTML =
       Object.entries(d.reservations_by_status).map(([k, v], index) =>
-        `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0;border-bottom:1px solid var(--line)">
-          <span style="display:flex;align-items:center;gap:0.4rem">
-            <i style="width:0.6rem;height:0.6rem;border-radius:50%;background:${palette[index % palette.length]};display:inline-block"></i>
+        `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.45rem 0;border-bottom:1px solid var(--line); font-size:0.82rem;">
+          <span style="display:flex;align-items:center;gap:0.45rem; font-weight:700;">
+            <i style="width:0.55rem;height:0.55rem;border-radius:50%;background:${palette[index % palette.length]};display:inline-block"></i>
             ${STATUS_LABELS[k] ?? k}
           </span>
-          <strong>${v}</strong>
+          <strong style="font-weight:900;">${v}</strong>
         </div>`
-      ).join('') || '<p style="color:var(--ink-soft);font-size:0.9rem">Sin datos aún</p>';
+      ).join('') || '<p style="color:var(--ink-soft);font-size:0.8rem">Sin reservas aún</p>';
+
+    document.getElementById('order-types-list').innerHTML =
+      Object.entries(d.order_types).map(([k, v], index) =>
+        `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.4rem 0;border-bottom:1px solid var(--line); font-size:0.8rem;">
+          <span style="display:flex;align-items:center;gap:0.4rem; font-weight:700;">
+            <i style="width:0.5rem;height:0.5rem;border-radius:50%;background:${palette[index % palette.length]};display:inline-block"></i>
+            ${STATUS_LABELS[k] ?? k}
+          </span>
+          <strong style="font-weight:900;">${v}</strong>
+        </div>`
+      ).join('') || '<p style="color:var(--ink-soft);font-size:0.8rem">Sin datos</p>';
+
+    // Renderizar Feed de Actividad Reciente combinado
+    const feed = d.recent_activity || [];
+    document.getElementById('recent-activity-feed').innerHTML = feed.map(act => {
+      const isOrder = act.type === 'order';
+      const badgeColor = isOrder ? 'var(--jade-3)' : 'var(--accent)';
+      
+      const icon = isOrder ? `
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 22V12h6v10"/></svg>
+      ` : `
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      `;
+      
+      const timeStr = new Date(act.timestamp).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+      const badgeCls = STATUS_BADGES[act.status] ?? '';
+      
+      return `
+        <div style="display:flex; gap:0.75rem; align-items:flex-start; padding:0.65rem 0; border-bottom:1px solid var(--line);">
+          <div style="width:26px; height:26px; border-radius:50%; background:${badgeColor}; display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 3px 6px rgba(0,0,0,0.06)">
+            ${icon}
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.1rem;">
+              <strong style="font-size:0.82rem; color:var(--ink); font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${act.title}</strong>
+              <span style="font-size:0.7rem; color:var(--ink-soft); font-weight:700;">${timeStr}</span>
+            </div>
+            <div style="font-size:0.75rem; color:var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${act.description}</div>
+          </div>
+          <div style="text-align:right; flex-shrink:0; display:flex; flex-direction:column; align-items:flex-end;">
+            <div style="font-size:0.8rem; font-weight:900; color:var(--jade);">${act.meta}</div>
+            <span class="badge ${badgeCls}" style="font-size:0.58rem; padding:0.05rem 0.35rem; margin-top:2px; display:inline-block;">
+              ${STATUS_LABELS[act.status] ?? act.status}
+            </span>
+          </div>
+        </div>
+      `;
+    }).join('') || '<p style="color:var(--ink-soft); font-size:0.8rem; text-align:center; padding:1rem 0;">Sin actividad reciente</p>';
   }
 
   load();

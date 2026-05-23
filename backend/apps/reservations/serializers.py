@@ -1,3 +1,4 @@
+from datetime import timedelta
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -11,7 +12,8 @@ class ReservationSerializer(serializers.ModelSerializer):
         read_only_fields = ("status", "created_at")
 
     def validate_reserved_at(self, value):
-        if value <= timezone.now():
+        # Permitimos hasta 10 minutos en el pasado para tolerar ligeras desincronizaciones de reloj
+        if value <= timezone.now() - timedelta(minutes=10):
             raise serializers.ValidationError("La reserva debe ser para una fecha y hora futura.")
         return value
 

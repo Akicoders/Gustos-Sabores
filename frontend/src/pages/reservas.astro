@@ -49,8 +49,18 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
     event.preventDefault();
     const formData = new FormData(form);
     const payload = Object.fromEntries(formData.entries());
+    
+    if (!payload.reserved_at) {
+      status.style.color = '#fee2e2';
+      status.textContent = 'Por favor, seleccione una fecha y hora.';
+      return;
+    }
+    
     payload.reserved_at = new Date(payload.reserved_at).toISOString();
     payload.party_size = Number(payload.party_size);
+
+    status.style.color = '#ffffff';
+    status.textContent = 'Enviando reserva...';
 
     try {
       const response = await fetch(`${form.dataset.api}/reservations/`, {
@@ -58,11 +68,30 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      if (!response.ok) throw new Error('Reserva rechazada');
+      
+      if (!response.ok) {
+        let errMsg = 'No se pudo completar la reserva.';
+        try {
+          const errData = await response.json();
+          if (errData.reserved_at) {
+            errMsg = `Fecha y hora: ${errData.reserved_at.join(' ')}`;
+          } else if (errData.party_size) {
+            errMsg = `Personas: ${errData.party_size.join(' ')}`;
+          } else if (errData.detail) {
+            errMsg = errData.detail;
+          } else if (typeof errData === 'object') {
+            errMsg = Object.entries(errData).map(([k, v]) => `${k}: ${v}`).join(', ');
+          }
+        } catch (e) {}
+        throw new Error(errMsg);
+      }
+      
       form.reset();
-      status.textContent = 'Mensaje enviado. Reserva registrada como pendiente.';
+      status.style.color = '#86efac'; // light green
+      status.textContent = '¡Tu reserva ha sido registrada con éxito como PENDIENTE! Nos comunicaremos contigo.';
     } catch (error) {
-      status.textContent = 'No se pudo enviar la consulta.';
+      status.style.color = '#fca5a5'; // light red
+      status.textContent = error.message;
     }
   });
 </script>

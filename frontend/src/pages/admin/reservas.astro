@@ -6,12 +6,18 @@ const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
 <AdminLayout title="Reservas | Gustos y Sabores">
   <div class="section-header">
     <span class="section-title">Gestión de reservas</span>
-    <select id="filtro-estado" style="padding:0.45rem 0.8rem;border-radius:8px;font-size:0.85rem;border:1px solid var(--line)">
-      <option value="">Todos</option>
-      <option value="pending">Pendientes</option>
-      <option value="confirmed">Confirmadas</option>
-      <option value="cancelled">Canceladas</option>
-    </select>
+    <div style="display:flex;gap:0.75rem;align-items:center">
+      <select id="filtro-estado" style="padding:0.45rem 0.8rem;border-radius:8px;font-size:0.85rem;border:1px solid var(--line)">
+        <option value="">Todos</option>
+        <option value="pending">Pendientes</option>
+        <option value="confirmed">Confirmadas</option>
+        <option value="cancelled">Canceladas</option>
+      </select>
+      <button class="btn btn-primary" id="btn-nueva-reserva" style="padding:0.45rem 1rem">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="margin-right:2px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Nueva Reserva
+      </button>
+    </div>
   </div>
 
   <div class="admin-card" style="padding:0;overflow:hidden">
@@ -32,6 +38,52 @@ const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
       </tbody>
     </table>
   </div>
+
+  <!-- Modal de Nueva Reserva -->
+  <div id="modal-reserva" class="modal-backdrop" style="display:none">
+    <div class="modal" style="width: min(560px, 100%);">
+      <h2 class="modal-title">Registrar Nueva Reserva</h2>
+      <div id="modal-error" class="alert alert-error" style="display:none; margin-bottom:1rem; padding:0.75rem 1rem; border-radius:10px; font-size:0.88rem; font-weight:700;"></div>
+      <form id="form-nueva-reserva">
+        <div class="form-row" style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
+          <div class="field" style="display:flex; flex-direction:column; gap:0.3rem;">
+            <label style="font-size:0.75rem; font-weight:800; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.04em;">Nombre del Cliente</label>
+            <input type="text" name="customer_name" required placeholder="Nombre completo" style="border:1px solid var(--line); border-radius:10px; padding:0.65rem 0.9rem;" />
+          </div>
+          <div class="field" style="display:flex; flex-direction:column; gap:0.3rem;">
+            <label style="font-size:0.75rem; font-weight:800; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.04em;">Teléfono</label>
+            <input type="text" name="customer_phone" required placeholder="999888777" style="border:1px solid var(--line); border-radius:10px; padding:0.65rem 0.9rem;" />
+          </div>
+        </div>
+        <div class="form-row" style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
+          <div class="field" style="display:flex; flex-direction:column; gap:0.3rem;">
+            <label style="font-size:0.75rem; font-weight:800; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.04em;">Email</label>
+            <input type="email" name="customer_email" required placeholder="cliente@correo.com" style="border:1px solid var(--line); border-radius:10px; padding:0.65rem 0.9rem;" />
+          </div>
+          <div class="field" style="display:flex; flex-direction:column; gap:0.3rem;">
+            <label style="font-size:0.75rem; font-weight:800; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.04em;">N° Personas</label>
+            <input type="number" name="party_size" min="1" value="2" required style="border:1px solid var(--line); border-radius:10px; padding:0.65rem 0.9rem;" />
+          </div>
+        </div>
+        <div class="form-row" style="margin-bottom:1rem;">
+          <div class="field" style="display:flex; flex-direction:column; gap:0.3rem;">
+            <label style="font-size:0.75rem; font-weight:800; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.04em;">Fecha y Hora</label>
+            <input type="datetime-local" name="reserved_at" required style="border:1px solid var(--line); border-radius:10px; padding:0.65rem 0.9rem;" />
+          </div>
+        </div>
+        <div class="form-row" style="margin-bottom:1rem;">
+          <div class="field" style="display:flex; flex-direction:column; gap:0.3rem;">
+            <label style="font-size:0.75rem; font-weight:800; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.04em;">Notas / Requerimientos</label>
+            <textarea name="notes" placeholder="Mesa cerca a la ventana, cumpleaños, alérgico, etc." style="border:1px solid var(--line); border-radius:10px; padding:0.65rem 0.9rem; min-height:80px; resize:vertical;"></textarea>
+          </div>
+        </div>
+        <div class="modal-actions" style="display:flex; justify-content:flex-end; gap:0.75rem; margin-top:1.5rem;">
+          <button type="button" class="btn btn-ghost" id="btn-cancelar-modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-guardar-reserva">Guardar Reserva</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </AdminLayout>
 
 <script define:vars={{ api }}>
@@ -47,7 +99,6 @@ const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
   let reservas = [];
 
   async function cargar(estado = '') {
-    // Reutilizamos el endpoint del cliente; el admin ve todas si es staff
     const res = await fetch(`${api}/reservations/`, {
       headers: { Authorization: `Token ${token}` },
     });
@@ -70,7 +121,7 @@ const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
         <td><strong>#${r.id}</strong></td>
         <td>
           <div style="font-weight:700">${r.customer_name}</div>
-          <div style="font-size:0.78rem;color:var(--ink-soft)">${r.customer_phone}</div>
+          <div style="font-size:0.78rem;color:var(--ink-soft)">${r.customer_phone} | ${r.customer_email}</div>
         </td>
         <td>${r.party_size} personas</td>
         <td style="font-size:0.85rem">${fmtDate(r.reserved_at)}</td>
@@ -101,6 +152,86 @@ const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
       alert('Error al cambiar el estado de la reserva');
     }
   };
+
+  // Modal setup
+  const modal = document.getElementById('modal-reserva');
+  const btnNueva = document.getElementById('btn-nueva-reserva');
+  const btnCancelar = document.getElementById('btn-cancelar-modal');
+  const formReserva = document.getElementById('form-nueva-reserva');
+  const modalError = document.getElementById('modal-error');
+
+  btnNueva.addEventListener('click', () => {
+    formReserva.reset();
+    modalError.style.display = 'none';
+    modal.style.display = 'flex';
+  });
+
+  btnCancelar.addEventListener('click', () => {
+    modal.style.display = 'none';
+  });
+
+  // Cerrar al hacer click fuera
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.style.display = 'none';
+  });
+
+  formReserva.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    modalError.style.display = 'none';
+    const formData = new FormData(formReserva);
+    const payload = Object.fromEntries(formData.entries());
+    
+    // Validar y parsear fecha
+    if (!payload.reserved_at) {
+      modalError.textContent = 'Seleccione una fecha y hora válida.';
+      modalError.style.display = 'block';
+      return;
+    }
+    
+    payload.reserved_at = new Date(payload.reserved_at).toISOString();
+    payload.party_size = Number(payload.party_size);
+
+    const btnGuardar = document.getElementById('btn-guardar-reserva');
+    btnGuardar.disabled = true;
+    btnGuardar.textContent = 'Guardando...';
+
+    try {
+      const response = await fetch(`${api}/reservations/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${token}`
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        let errMsg = 'No se pudo completar la reserva.';
+        try {
+          const errData = await response.json();
+          if (errData.reserved_at) {
+            errMsg = `Fecha y hora: ${errData.reserved_at.join(' ')}`;
+          } else if (errData.party_size) {
+            errMsg = `Personas: ${errData.party_size.join(' ')}`;
+          } else if (errData.detail) {
+            errMsg = errData.detail;
+          } else if (typeof errData === 'object') {
+            errMsg = Object.entries(errData).map(([k, v]) => `${k}: ${v}`).join(', ');
+          }
+        } catch (e) {}
+        throw new Error(errMsg);
+      }
+
+      modal.style.display = 'none';
+      cargar(document.getElementById('filtro-estado').value);
+    } catch (err) {
+      modalError.textContent = err.message;
+      modalError.style.display = 'block';
+    } finally {
+      btnGuardar.disabled = false;
+      btnGuardar.textContent = 'Guardar Reserva';
+    }
+  });
 
   document.getElementById('filtro-estado').addEventListener('change', e => cargar(e.target.value));
   cargar();
