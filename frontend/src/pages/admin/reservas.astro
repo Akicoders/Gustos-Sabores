@@ -87,9 +87,19 @@ const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
   }
 
   window.cambiarEstado = async function(id, newStatus) {
-    // El endpoint de reservas no tiene PATCH de estado aún, usamos el admin de Django
-    // Por ahora mostramos aviso; en MVP 2.1 se agrega endpoint PATCH /reservations/{id}/estado/
-    alert(`Funcionalidad de cambio de estado disponible en el panel administrativo Django: /admin`);
+    const res = await fetch(`${api}/reservations/${id}/estado/`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Token ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    if (res.ok) {
+      cargar(document.getElementById('filtro-estado').value);
+    } else {
+      alert('Error al cambiar el estado de la reserva');
+    }
   };
 
   document.getElementById('filtro-estado').addEventListener('change', e => cargar(e.target.value));
