@@ -1,0 +1,186 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
+---
+
+<AdminLayout title="Menú | Gustos y Sabores">
+  <div class="section-header">
+    <span class="section-title">Platos del menú</span>
+    <button class="btn btn-primary" id="btn-nuevo-plato">+ Nuevo plato</button>
+  </div>
+
+  <div class="admin-card" style="padding:0;overflow:hidden">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Categoría</th>
+          <th>Precio</th>
+          <th>Disponible</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="platos-tbody">
+        <tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--ink-soft)">Cargando...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Modal plato -->
+  <div id="modal-plato" class="modal-backdrop" style="display:none">
+    <div class="modal">
+      <p class="modal-title" id="modal-plato-title">Nuevo plato</p>
+      <input type="hidden" id="plato-id" />
+      <div class="form-row">
+        <div class="field">
+          <label for="plato-name">Nombre</label>
+          <input id="plato-name" type="text" required />
+        </div>
+        <div class="field">
+          <label for="plato-category">Categoría</label>
+          <select id="plato-category"></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label for="plato-price">Precio (S/)</label>
+          <input id="plato-price" type="number" step="0.01" min="0" required />
+        </div>
+        <div class="field">
+          <label for="plato-available">Disponible</label>
+          <select id="plato-available">
+            <option value="true">Sí</option>
+            <option value="false">No</option>
+          </select>
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:1rem">
+        <label for="plato-desc">Descripción</label>
+        <textarea id="plato-desc"></textarea>
+      </div>
+      <div class="field" style="margin-bottom:1rem">
+        <label for="plato-image">URL de imagen</label>
+        <input id="plato-image" type="url" placeholder="https://..." />
+      </div>
+      <div id="modal-plato-error" class="alert alert-error" style="display:none"></div>
+      <div class="modal-actions">
+        <button class="btn btn-danger" id="btn-plato-delete" style="display:none;margin-right:auto">Eliminar</button>
+        <button class="btn btn-ghost" id="btn-plato-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="btn-plato-save">Guardar</button>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script define:vars={{ api }}>
+  const token = localStorage.getItem('gustos_token');
+  let categorias = [];
+  let platos = [];
+
+  async function cargar() {
+    const [rP, rC] = await Promise.all([
+      fetch(`${api}/menu/admin/dishes/`, { headers: { Authorization: `Token ${token}` } }),
+      fetch(`${api}/menu/admin/categories/`, { headers: { Authorization: `Token ${token}` } }),
+    ]);
+    platos = await rP.json();
+    categorias = await rC.json();
+    renderCategoriaSelect();
+    renderTabla();
+  }
+
+  function renderCategoriaSelect() {
+    document.getElementById('plato-category').innerHTML =
+      categorias.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  }
+
+  function renderTabla() {
+    const tbody = document.getElementById('platos-tbody');
+    if (!platos.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--ink-soft)">Sin platos</td></tr>';
+      return;
+    }
+    const fmt = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' });
+    tbody.innerHTML = platos.map(p => `<tr>
+      <td>
+        <div style="font-weight:700">${p.name}</div>
+        <div style="font-size:0.78rem;color:var(--ink-soft)">${p.description?.slice(0,60) || ''}</div>
+      </td>
+      <td>${p.category}</td>
+      <td><strong style="color:var(--jade-2)">${fmt.format(p.price)}</strong></td>
+      <td><span class="badge ${p.is_available ? 'badge-ok' : 'badge-cancelled'}">${p.is_available ? 'Sí' : 'No'}</span></td>
+      <td><button class="btn btn-ghost" style="font-size:0.8rem" onclick="editarPlato(${p.id})">Editar</button></td>
+    </tr>`).join('');
+  }
+
+  window.editarPlato = function(id) {
+    const p = platos.find(x => x.id === id);
+    if (!p) return;
+    document.getElementById('plato-id').value = p.id;
+    document.getElementById('modal-plato-title').textContent = 'Editar plato';
+    document.getElementById('plato-name').value = p.name;
+    document.getElementById('plato-price').value = p.price;
+    document.getElementById('plato-desc').value = p.description ?? '';
+    document.getElementById('plato-image').value = p.image_url ?? '';
+    document.getElementById('plato-available').value = String(p.is_available);
+    document.getElementById('plato-category').value = p.category_id;
+    document.getElementById('btn-plato-delete').style.display = 'inline-flex';
+    document.getElementById('modal-plato-error').style.display = 'none';
+    document.getElementById('modal-plato').style.display = 'flex';
+  };
+
+  document.getElementById('btn-nuevo-plato').onclick = () => {
+    document.getElementById('plato-id').value = '';
+    document.getElementById('modal-plato-title').textContent = 'Nuevo plato';
+    document.getElementById('plato-name').value = '';
+    document.getElementById('plato-price').value = '';
+    document.getElementById('plato-desc').value = '';
+    document.getElementById('plato-image').value = '';
+    document.getElementById('plato-available').value = 'true';
+    document.getElementById('btn-plato-delete').style.display = 'none';
+    document.getElementById('modal-plato-error').style.display = 'none';
+    document.getElementById('modal-plato').style.display = 'flex';
+  };
+
+  document.getElementById('btn-plato-cancel').onclick = () => {
+    document.getElementById('modal-plato').style.display = 'none';
+  };
+
+  document.getElementById('btn-plato-save').onclick = async () => {
+    const id = document.getElementById('plato-id').value;
+    const errEl = document.getElementById('modal-plato-error');
+    const body = {
+      name: document.getElementById('plato-name').value,
+      price: document.getElementById('plato-price').value,
+      description: document.getElementById('plato-desc').value,
+      image_url: document.getElementById('plato-image').value,
+      is_available: document.getElementById('plato-available').value === 'true',
+      category: document.getElementById('plato-category').value,
+    };
+    const url = id ? `${api}/menu/admin/dishes/${id}/` : `${api}/menu/admin/dishes/`;
+    const method = id ? 'PUT' : 'POST';
+    const res = await fetch(url, {
+      method, headers: { Authorization: `Token ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      errEl.textContent = JSON.stringify(err);
+      errEl.style.display = 'block';
+      return;
+    }
+    document.getElementById('modal-plato').style.display = 'none';
+    cargar();
+  };
+
+  document.getElementById('btn-plato-delete').onclick = async () => {
+    if (!confirm('¿Eliminar este plato?')) return;
+    const id = document.getElementById('plato-id').value;
+    await fetch(`${api}/menu/admin/dishes/${id}/`, {
+      method: 'DELETE', headers: { Authorization: `Token ${token}` },
+    });
+    document.getElementById('modal-plato').style.display = 'none';
+    cargar();
+  };
+
+  cargar();
+</script>

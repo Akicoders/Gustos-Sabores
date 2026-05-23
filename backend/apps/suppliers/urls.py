@@ -1,0 +1,8 @@
+from django.urls import path
+
+from apps.suppliers.views import SupplierDetailView, SupplierListCreateView
+
+urlpatterns = [
+    path("", SupplierListCreateView.as_view(), name="proveedores"),
+    path("<int:pk>/", SupplierDetailView.as_view(), name="proveedor-detalle"),
+]

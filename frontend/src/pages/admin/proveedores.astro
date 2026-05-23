@@ -1,0 +1,176 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
+---
+
+<AdminLayout title="Proveedores | Gustos y Sabores">
+  <div class="section-header">
+    <span class="section-title">Proveedores</span>
+    <button class="btn btn-primary" id="btn-nuevo-prov">+ Nuevo proveedor</button>
+  </div>
+
+  <div class="admin-card" style="padding:0;overflow:hidden">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Razón social</th>
+          <th>RUC</th>
+          <th>Contacto</th>
+          <th>Teléfono</th>
+          <th>Correo</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="prov-tbody">
+        <tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--ink-soft)">Cargando...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Modal proveedor -->
+  <div id="modal-prov" class="modal-backdrop" style="display:none">
+    <div class="modal">
+      <p class="modal-title" id="modal-prov-title">Nuevo proveedor</p>
+      <input type="hidden" id="prov-id" />
+      <div class="form-row">
+        <div class="field">
+          <label for="prov-name">Razón social / Nombre</label>
+          <input id="prov-name" type="text" required />
+        </div>
+        <div class="field">
+          <label for="prov-ruc">RUC</label>
+          <input id="prov-ruc" type="text" maxlength="11" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label for="prov-contact">Nombre de contacto</label>
+          <input id="prov-contact" type="text" />
+        </div>
+        <div class="field">
+          <label for="prov-phone">Teléfono</label>
+          <input id="prov-phone" type="tel" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label for="prov-email">Correo</label>
+          <input id="prov-email" type="email" />
+        </div>
+        <div class="field">
+          <label for="prov-active">Activo</label>
+          <select id="prov-active">
+            <option value="true">Sí</option>
+            <option value="false">No</option>
+          </select>
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:1rem">
+        <label for="prov-address">Dirección</label>
+        <input id="prov-address" type="text" />
+      </div>
+      <div class="field" style="margin-bottom:1rem">
+        <label for="prov-notes">Notas</label>
+        <textarea id="prov-notes"></textarea>
+      </div>
+      <div id="modal-prov-error" class="alert alert-error" style="display:none"></div>
+      <div class="modal-actions">
+        <button class="btn btn-danger" id="btn-prov-delete" style="display:none;margin-right:auto">Eliminar</button>
+        <button class="btn btn-ghost" id="btn-prov-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="btn-prov-save">Guardar</button>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script define:vars={{ api }}>
+  const token = localStorage.getItem('gustos_token');
+  let provs = [];
+
+  async function cargar() {
+    const res = await fetch(`${api}/suppliers/`, { headers: { Authorization: `Token ${token}` } });
+    provs = await res.json();
+    render();
+  }
+
+  function render() {
+    const tbody = document.getElementById('prov-tbody');
+    if (!provs.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--ink-soft)">Sin proveedores</td></tr>';
+      return;
+    }
+    tbody.innerHTML = provs.map(p => `<tr>
+      <td><strong>${p.name}</strong></td>
+      <td>${p.ruc || '—'}</td>
+      <td>${p.contact_name || '—'}</td>
+      <td>${p.phone || '—'}</td>
+      <td>${p.email || '—'}</td>
+      <td><span class="badge ${p.is_active ? 'badge-ok' : 'badge-cancelled'}">${p.is_active ? 'Activo' : 'Inactivo'}</span></td>
+      <td><button class="btn btn-ghost" style="font-size:0.8rem" onclick="editar(${p.id})">Editar</button></td>
+    </tr>`).join('');
+  }
+
+  window.editar = function(id) {
+    const p = provs.find(x => x.id === id);
+    document.getElementById('prov-id').value = p.id;
+    document.getElementById('modal-prov-title').textContent = 'Editar proveedor';
+    document.getElementById('prov-name').value = p.name;
+    document.getElementById('prov-ruc').value = p.ruc ?? '';
+    document.getElementById('prov-contact').value = p.contact_name ?? '';
+    document.getElementById('prov-phone').value = p.phone ?? '';
+    document.getElementById('prov-email').value = p.email ?? '';
+    document.getElementById('prov-address').value = p.address ?? '';
+    document.getElementById('prov-notes').value = p.notes ?? '';
+    document.getElementById('prov-active').value = String(p.is_active);
+    document.getElementById('btn-prov-delete').style.display = 'inline-flex';
+    document.getElementById('modal-prov-error').style.display = 'none';
+    document.getElementById('modal-prov').style.display = 'flex';
+  };
+
+  document.getElementById('btn-nuevo-prov').onclick = () => {
+    document.getElementById('prov-id').value = '';
+    document.getElementById('modal-prov-title').textContent = 'Nuevo proveedor';
+    ['prov-name','prov-ruc','prov-contact','prov-phone','prov-email','prov-address','prov-notes'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('prov-active').value = 'true';
+    document.getElementById('btn-prov-delete').style.display = 'none';
+    document.getElementById('modal-prov-error').style.display = 'none';
+    document.getElementById('modal-prov').style.display = 'flex';
+  };
+
+  document.getElementById('btn-prov-cancel').onclick = () => document.getElementById('modal-prov').style.display = 'none';
+
+  document.getElementById('btn-prov-save').onclick = async () => {
+    const id = document.getElementById('prov-id').value;
+    const errEl = document.getElementById('modal-prov-error');
+    const body = {
+      name: document.getElementById('prov-name').value,
+      ruc: document.getElementById('prov-ruc').value,
+      contact_name: document.getElementById('prov-contact').value,
+      phone: document.getElementById('prov-phone').value,
+      email: document.getElementById('prov-email').value,
+      address: document.getElementById('prov-address').value,
+      notes: document.getElementById('prov-notes').value,
+      is_active: document.getElementById('prov-active').value === 'true',
+    };
+    const url = id ? `${api}/suppliers/${id}/` : `${api}/suppliers/`;
+    const res = await fetch(url, {
+      method: id ? 'PUT' : 'POST',
+      headers: { Authorization: `Token ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) { const err = await res.json(); errEl.textContent = JSON.stringify(err); errEl.style.display = 'block'; return; }
+    document.getElementById('modal-prov').style.display = 'none';
+    cargar();
+  };
+
+  document.getElementById('btn-prov-delete').onclick = async () => {
+    if (!confirm('¿Eliminar este proveedor?')) return;
+    const id = document.getElementById('prov-id').value;
+    await fetch(`${api}/suppliers/${id}/`, { method: 'DELETE', headers: { Authorization: `Token ${token}` } });
+    document.getElementById('modal-prov').style.display = 'none';
+    cargar();
+  };
+
+  cargar();
+</script>

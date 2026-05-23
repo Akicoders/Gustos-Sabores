@@ -5,6 +5,7 @@ from rest_framework import serializers
 
 from apps.menu.models import Dish
 from apps.orders.models import Order, OrderItem
+from apps.promotions.models import Promotion
 
 
 class OrderItemReadSerializer(serializers.ModelSerializer):
@@ -23,6 +24,8 @@ class OrderItemWriteSerializer(serializers.Serializer):
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemWriteSerializer(many=True, write_only=True)
     item_details = OrderItemReadSerializer(many=True, source="items", read_only=True)
+    promotion_code = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    promotion_name = serializers.CharField(source="promotion.name", read_only=True, default="")
 
     class Meta:
         model = Order
@@ -36,33 +39,61 @@ class OrderSerializer(serializers.ModelSerializer):
             "payment_method",
             "status",
             "notes",
+            "subtotal",
+            "discount_amount",
             "total",
+            "promotion",
+            "promotion_name",
+            "promotion_code",
             "items",
             "item_details",
             "created_at",
         )
-        read_only_fields = ("status", "total", "created_at")
+        read_only_fields = ("status", "subtotal", "discount_amount", "total", "promotion", "created_at")
 
     def validate(self, attrs):
         if attrs.get("order_type") == Order.OrderType.DELIVERY and not attrs.get("delivery_address"):
-            raise serializers.ValidationError({"delivery_address": "La direccion es obligatoria para delivery."})
+            raise serializers.ValidationError({"delivery_address": "La dirección es obligatoria para delivery."})
         return attrs
 
     def create(self, validated_data):
         with transaction.atomic():
             items_data = validated_data.pop("items")
+            promotion_code = validated_data.pop("promotion_code", "").strip().upper()
             request = self.context["request"]
+
             if request.user.is_authenticated:
                 validated_data["user"] = request.user
 
             order = Order.objects.create(**validated_data)
-            total = Decimal("0.00")
+
+            # Calcular subtotal desde los items
+            subtotal = Decimal("0.00")
             for item in items_data:
                 dish = item["dish"]
                 quantity = item["quantity"]
                 OrderItem.objects.create(order=order, dish=dish, quantity=quantity, unit_price=dish.price)
-                total += dish.price * quantity
+                subtotal += dish.price * quantity
 
-            order.total = total
-            order.save(update_fields=["total"])
+            order.subtotal = subtotal
+            discount = Decimal("0.00")
+
+            # Aplicar promoción si se envió código
+            if promotion_code:
+                try:
+                    promo = Promotion.objects.get(code__iexact=promotion_code)
+                    if promo.is_valid() and subtotal >= promo.min_order_amount:
+                        if promo.discount_type == Promotion.DiscountType.PERCENTAGE:
+                            discount = (subtotal * promo.discount_value / 100).quantize(Decimal("0.01"))
+                        else:
+                            discount = min(promo.discount_value, subtotal)
+                        order.promotion = promo
+                        promo.times_used += 1
+                        promo.save(update_fields=["times_used"])
+                except Promotion.DoesNotExist:
+                    pass
+
+            order.discount_amount = discount
+            order.total = subtotal - discount
+            order.save(update_fields=["subtotal", "discount_amount", "total", "promotion"])
             return order

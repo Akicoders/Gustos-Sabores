@@ -1,0 +1,154 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
+---
+
+<AdminLayout title="Facturación | Gustos y Sabores">
+  <div class="section-header">
+    <span class="section-title">Comprobantes emitidos</span>
+    <button class="btn btn-primary" id="btn-nueva-factura">+ Emitir comprobante</button>
+  </div>
+
+  <div class="admin-card" style="padding:0;overflow:hidden">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>N° Comprobante</th>
+          <th>Tipo</th>
+          <th>Cliente</th>
+          <th>DNI/RUC</th>
+          <th>Subtotal</th>
+          <th>IGV</th>
+          <th>Total</th>
+          <th>Fecha</th>
+          <th>PDF</th>
+        </tr>
+      </thead>
+      <tbody id="billing-tbody">
+        <tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--ink-soft)">Cargando...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Modal emitir -->
+  <div id="modal-factura" class="modal-backdrop" style="display:none">
+    <div class="modal">
+      <p class="modal-title">Emitir comprobante</p>
+      <div class="field" style="margin-bottom:1rem">
+        <label for="fact-order-id">ID del pedido</label>
+        <input id="fact-order-id" type="number" min="1" placeholder="Ej: 42" required />
+        <small style="color:var(--ink-soft)">Ingresa el número del pedido entregado.</small>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label for="fact-type">Tipo de comprobante</label>
+          <select id="fact-type">
+            <option value="boleta">Boleta de venta</option>
+            <option value="factura">Factura</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="fact-doc">DNI / RUC del cliente</label>
+          <input id="fact-doc" type="text" maxlength="11" />
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:1rem">
+        <label for="fact-name">Nombre / Razón social del cliente</label>
+        <input id="fact-name" type="text" required />
+      </div>
+      <div class="field" style="margin-bottom:1rem">
+        <label for="fact-address">Dirección fiscal</label>
+        <input id="fact-address" type="text" />
+      </div>
+      <div class="field" style="margin-bottom:1rem">
+        <label for="fact-email">Correo electrónico</label>
+        <input id="fact-email" type="email" />
+      </div>
+      <div id="modal-fact-error" class="alert alert-error" style="display:none"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btn-fact-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="btn-fact-save">Emitir y descargar PDF</button>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script define:vars={{ api }}>
+  const token = localStorage.getItem('gustos_token');
+  const fmt = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' });
+  const fmtDate = (d) => new Date(d).toLocaleDateString('es-PE', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+
+  async function cargar() {
+    const res = await fetch(`${api}/billing/`, { headers: { Authorization: `Token ${token}` } });
+    const data = await res.json();
+    const tbody = document.getElementById('billing-tbody');
+    if (!data.length) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--ink-soft)">Sin comprobantes emitidos</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.map(b => `<tr>
+      <td><strong>${b.number}</strong></td>
+      <td>${b.invoice_type_display}</td>
+      <td>${b.receptor_name}</td>
+      <td>${b.receptor_doc || '—'}</td>
+      <td>${fmt.format(b.subtotal)}</td>
+      <td>${fmt.format(b.igv)}</td>
+      <td><strong style="color:var(--jade-2)">${fmt.format(b.total)}</strong></td>
+      <td style="font-size:0.8rem">${fmtDate(b.created_at)}</td>
+      <td>
+        <a class="btn btn-accent" style="font-size:0.78rem;padding:0.4rem 0.7rem" href="${api}/billing/${b.id}/pdf/" target="_blank" download>
+          ↓ PDF
+        </a>
+      </td>
+    </tr>`).join('');
+  }
+
+  document.getElementById('btn-nueva-factura').onclick = () => {
+    ['fact-order-id','fact-doc','fact-name','fact-address','fact-email'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('modal-fact-error').style.display = 'none';
+    document.getElementById('modal-factura').style.display = 'flex';
+  };
+
+  document.getElementById('btn-fact-cancel').onclick = () => document.getElementById('modal-factura').style.display = 'none';
+
+  document.getElementById('btn-fact-save').onclick = async () => {
+    const errEl = document.getElementById('modal-fact-error');
+    const body = {
+      order_id: parseInt(document.getElementById('fact-order-id').value),
+      invoice_type: document.getElementById('fact-type').value,
+      receptor_name: document.getElementById('fact-name').value,
+      receptor_doc: document.getElementById('fact-doc').value,
+      receptor_address: document.getElementById('fact-address').value,
+      receptor_email: document.getElementById('fact-email').value,
+    };
+    const res = await fetch(`${api}/billing/`, {
+      method: 'POST',
+      headers: { Authorization: `Token ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      errEl.textContent = Object.values(err).flat().join(' ');
+      errEl.style.display = 'block';
+      return;
+    }
+    const created = await res.json();
+    document.getElementById('modal-factura').style.display = 'none';
+    // Descargar PDF automáticamente
+    const pdfRes = await fetch(`${api}/billing/${created.id}/pdf/`, {
+      headers: { Authorization: `Token ${token}` },
+    });
+    if (pdfRes.ok) {
+      const blob = await pdfRes.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `comprobante-${created.number}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+    cargar();
+  };
+
+  cargar();
+</script>

@@ -1,0 +1,163 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
+---
+
+<AdminLayout title="Pedidos | Gustos y Sabores">
+  <div class="section-header">
+    <span class="section-title">Todos los pedidos</span>
+    <div style="display:flex;gap:0.5rem;align-items:center">
+      <select id="filtro-estado" class="field" style="margin:0;padding:0.45rem 0.8rem;border-radius:8px;font-size:0.85rem;border:1px solid var(--line)">
+        <option value="">Todos los estados</option>
+        <option value="pending">Pendiente</option>
+        <option value="preparing">En preparación</option>
+        <option value="ready">Listo</option>
+        <option value="delivered">Entregado</option>
+        <option value="cancelled">Cancelado</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="admin-card" style="padding:0;overflow:hidden">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Cliente</th>
+          <th>Tipo</th>
+          <th>Pago</th>
+          <th>Total</th>
+          <th>Estado</th>
+          <th>Fecha</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="pedidos-tbody">
+        <tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--ink-soft)">Cargando...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Modal cambio de estado -->
+  <div id="modal-estado" class="modal-backdrop" style="display:none">
+    <div class="modal">
+      <p class="modal-title">Cambiar estado del pedido</p>
+      <input type="hidden" id="modal-pedido-id" />
+      <div class="field">
+        <label for="nuevo-estado">Nuevo estado</label>
+        <select id="nuevo-estado">
+          <option value="preparing">En preparación</option>
+          <option value="ready">Listo</option>
+          <option value="delivered">Entregado</option>
+          <option value="cancelled">Cancelado</option>
+        </select>
+      </div>
+      <div id="modal-error" class="alert alert-error" style="display:none"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btn-modal-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="btn-modal-save">Guardar</button>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script define:vars={{ api }}>
+  const token = localStorage.getItem('gustos_token');
+  const fmt = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' });
+  const fmtDate = (d) => new Date(d).toLocaleDateString('es-PE', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+
+  const STATUS_MAP = {
+    pending:   { label: 'Pendiente',       cls: 'badge-pending' },
+    preparing: { label: 'En preparación',  cls: 'badge-preparing' },
+    ready:     { label: 'Listo',           cls: 'badge-ready' },
+    delivered: { label: 'Entregado',       cls: 'badge-delivered' },
+    cancelled: { label: 'Cancelado',       cls: 'badge-cancelled' },
+  };
+
+  const TYPE_MAP = { local: 'Local', delivery: 'Delivery' };
+  const PAYMENT_MAP = { cash: 'Efectivo', yape: 'Yape', card: 'Tarjeta' };
+
+  let pedidos = [];
+
+  async function cargarPedidos(estado = '') {
+    const url = estado ? `${api}/orders/todos/?estado=${estado}` : `${api}/orders/todos/`;
+    const res = await fetch(url, { headers: { Authorization: `Token ${token}` } });
+    if (!res.ok) return;
+    pedidos = await res.json();
+    renderTabla();
+  }
+
+  function renderTabla() {
+    const tbody = document.getElementById('pedidos-tbody');
+    if (!pedidos.length) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--ink-soft)">Sin pedidos</td></tr>';
+      return;
+    }
+    tbody.innerHTML = pedidos.map(p => {
+      const s = STATUS_MAP[p.status] ?? { label: p.status, cls: '' };
+      return `<tr>
+        <td><strong>#${p.id}</strong></td>
+        <td>
+          <div style="font-weight:700">${p.customer_name}</div>
+          <div style="font-size:0.78rem;color:var(--ink-soft)">${p.customer_phone}</div>
+        </td>
+        <td>${TYPE_MAP[p.order_type] ?? p.order_type}</td>
+        <td>${PAYMENT_MAP[p.payment_method] ?? p.payment_method}</td>
+        <td><strong style="color:var(--jade-2)">${fmt.format(p.total)}</strong></td>
+        <td><span class="badge ${s.cls}">${s.label}</span></td>
+        <td style="font-size:0.8rem">${fmtDate(p.created_at)}</td>
+        <td>
+          ${p.status !== 'delivered' && p.status !== 'cancelled'
+            ? `<button class="btn btn-ghost" data-pedido-id="${p.id}" data-pedido-status="${p.status}" onclick="abrirModal(this)">Cambiar estado</button>`
+            : '—'
+          }
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  window.abrirModal = function(btn) {
+    document.getElementById('modal-pedido-id').value = btn.dataset.pedidoId;
+    document.getElementById('modal-error').style.display = 'none';
+    // Mostrar solo transiciones válidas
+    const currentStatus = btn.dataset.pedidoStatus;
+    const transitions = {
+      pending: ['preparing', 'cancelled'],
+      preparing: ['ready', 'cancelled'],
+      ready: ['delivered'],
+    };
+    const allowed = transitions[currentStatus] ?? [];
+    const sel = document.getElementById('nuevo-estado');
+    sel.innerHTML = allowed.map(s => `<option value="${s}">${STATUS_MAP[s]?.label ?? s}</option>`).join('');
+    document.getElementById('modal-estado').style.display = 'flex';
+  };
+
+  document.getElementById('btn-modal-cancel').onclick = () => {
+    document.getElementById('modal-estado').style.display = 'none';
+  };
+
+  document.getElementById('btn-modal-save').onclick = async () => {
+    const id = document.getElementById('modal-pedido-id').value;
+    const newStatus = document.getElementById('nuevo-estado').value;
+    const errEl = document.getElementById('modal-error');
+    const res = await fetch(`${api}/orders/${id}/estado/`, {
+      method: 'PATCH',
+      headers: { Authorization: `Token ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      errEl.textContent = err.detail ?? 'Error al actualizar.';
+      errEl.style.display = 'block';
+      return;
+    }
+    document.getElementById('modal-estado').style.display = 'none';
+    cargarPedidos(document.getElementById('filtro-estado').value);
+  };
+
+  document.getElementById('filtro-estado').addEventListener('change', (e) => {
+    cargarPedidos(e.target.value);
+  });
+
+  cargarPedidos();
+</script>

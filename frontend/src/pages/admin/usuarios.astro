@@ -1,0 +1,94 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
+---
+
+<AdminLayout title="Usuarios | Gustos y Sabores">
+  <div class="section-header">
+    <span class="section-title">Gestión de usuarios</span>
+    <select id="filtro-rol" style="padding:0.45rem 0.8rem;border-radius:8px;font-size:0.85rem;border:1px solid var(--line)">
+      <option value="">Todos los roles</option>
+      <option value="customer">Clientes</option>
+      <option value="staff">Personal</option>
+      <option value="admin">Administradores</option>
+    </select>
+  </div>
+
+  <div class="admin-card" style="padding:0;overflow:hidden">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Nombre</th>
+          <th>Correo</th>
+          <th>Teléfono</th>
+          <th>Rol actual</th>
+          <th>Registrado</th>
+          <th>Cambiar rol</th>
+        </tr>
+      </thead>
+      <tbody id="users-tbody">
+        <tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--ink-soft)">Cargando...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</AdminLayout>
+
+<script define:vars={{ api }}>
+  const token = localStorage.getItem('gustos_token');
+  const currentUser = JSON.parse(localStorage.getItem('gustos_user') ?? '{}');
+  const fmtDate = (d) => new Date(d).toLocaleDateString('es-PE', { day:'2-digit', month:'short', year:'numeric' });
+
+  const ROLES = { customer: 'Cliente', staff: 'Personal', admin: 'Administrador' };
+  const ROLE_BADGE = { customer: '', staff: 'badge-preparing', admin: 'badge-ok' };
+
+  let users = [];
+
+  async function cargar(rol = '') {
+    const url = rol ? `${api}/auth/usuarios/?role=${rol}` : `${api}/auth/usuarios/`;
+    const res = await fetch(url, { headers: { Authorization: `Token ${token}` } });
+    users = await res.json();
+    render();
+  }
+
+  function render() {
+    const tbody = document.getElementById('users-tbody');
+    if (!users.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--ink-soft)">Sin usuarios</td></tr>';
+      return;
+    }
+    tbody.innerHTML = users.map(u => `<tr>
+      <td>${u.id}</td>
+      <td>
+        <div style="font-weight:700">${u.full_name || '—'}</div>
+        <div style="font-size:0.78rem;color:var(--ink-soft)">@${u.username}</div>
+      </td>
+      <td>${u.email}</td>
+      <td>${u.phone ?? '—'}</td>
+      <td><span class="badge ${ROLE_BADGE[u.role] ?? ''}">${ROLES[u.role] ?? u.role}</span></td>
+      <td style="font-size:0.8rem">${fmtDate(u.date_joined)}</td>
+      <td>
+        ${u.id !== currentUser.id ? `
+          <select onchange="cambiarRol(${u.id}, this.value)" style="padding:0.35rem 0.6rem;border-radius:6px;font-size:0.82rem;border:1px solid var(--line)">
+            <option value="" disabled selected>Cambiar a...</option>
+            ${Object.entries(ROLES).filter(([k]) => k !== u.role).map(([k,v]) => `<option value="${k}">${v}</option>`).join('')}
+          </select>` : '<span style="color:var(--ink-soft);font-size:0.82rem">(tú)</span>'
+        }
+      </td>
+    </tr>`).join('');
+  }
+
+  window.cambiarRol = async function(id, rol) {
+    if (!confirm(`¿Cambiar rol a "${ROLES[rol]}"?`)) { cargar(document.getElementById('filtro-rol').value); return; }
+    const res = await fetch(`${api}/auth/usuarios/${id}/rol/`, {
+      method: 'PATCH',
+      headers: { Authorization: `Token ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: rol }),
+    });
+    if (!res.ok) { alert('Error al cambiar el rol.'); }
+    cargar(document.getElementById('filtro-rol').value);
+  };
+
+  document.getElementById('filtro-rol').addEventListener('change', e => cargar(e.target.value));
+  cargar();
+</script>

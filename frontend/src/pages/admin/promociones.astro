@@ -1,0 +1,206 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
+---
+
+<AdminLayout title="Promociones | Gustos y Sabores">
+  <div class="section-header">
+    <span class="section-title">Promociones y descuentos</span>
+    <button class="btn btn-primary" id="btn-nueva-promo">+ Nueva promoción</button>
+  </div>
+
+  <div class="admin-card" style="padding:0;overflow:hidden">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Código</th>
+          <th>Descuento</th>
+          <th>Mín. pedido</th>
+          <th>Vigencia</th>
+          <th>Usos</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="promos-tbody">
+        <tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--ink-soft)">Cargando...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Modal -->
+  <div id="modal-promo" class="modal-backdrop" style="display:none">
+    <div class="modal">
+      <p class="modal-title" id="modal-promo-title">Nueva promoción</p>
+      <input type="hidden" id="promo-id" />
+      <div class="form-row">
+        <div class="field">
+          <label for="promo-name">Nombre</label>
+          <input id="promo-name" type="text" required />
+        </div>
+        <div class="field">
+          <label for="promo-code">Código</label>
+          <input id="promo-code" type="text" placeholder="VERANO25" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label for="promo-type">Tipo</label>
+          <select id="promo-type">
+            <option value="percentage">Porcentaje (%)</option>
+            <option value="fixed">Monto fijo (S/)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="promo-value">Valor</label>
+          <input id="promo-value" type="number" step="0.01" min="0" required />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label for="promo-min">Monto mínimo (S/)</label>
+          <input id="promo-min" type="number" step="0.01" min="0" value="0" />
+        </div>
+        <div class="field">
+          <label for="promo-limit">Límite de usos</label>
+          <input id="promo-limit" type="number" min="1" placeholder="Sin límite" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label for="promo-starts">Inicio</label>
+          <input id="promo-starts" type="datetime-local" required />
+        </div>
+        <div class="field">
+          <label for="promo-ends">Fin</label>
+          <input id="promo-ends" type="datetime-local" required />
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:1rem">
+        <label for="promo-active">Activa</label>
+        <select id="promo-active">
+          <option value="true">Sí</option>
+          <option value="false">No</option>
+        </select>
+      </div>
+      <div id="modal-promo-error" class="alert alert-error" style="display:none"></div>
+      <div class="modal-actions">
+        <button class="btn btn-danger" id="btn-promo-delete" style="display:none;margin-right:auto">Eliminar</button>
+        <button class="btn btn-ghost" id="btn-promo-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="btn-promo-save">Guardar</button>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script define:vars={{ api }}>
+  const token = localStorage.getItem('gustos_token');
+  let promos = [];
+
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('es-PE', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+  const fmt = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' });
+
+  async function cargar() {
+    const res = await fetch(`${api}/promotions/`, { headers: { Authorization: `Token ${token}` } });
+    promos = await res.json();
+    render();
+  }
+
+  function render() {
+    const tbody = document.getElementById('promos-tbody');
+    if (!promos.length) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--ink-soft)">Sin promociones</td></tr>';
+      return;
+    }
+    tbody.innerHTML = promos.map(p => `<tr>
+      <td><strong>${p.name}</strong></td>
+      <td><code style="background:var(--cream);padding:0.2rem 0.45rem;border-radius:5px;font-size:0.85rem">${p.code || '—'}</code></td>
+      <td>${p.discount_type === 'percentage' ? `${p.discount_value}%` : fmt.format(p.discount_value)}</td>
+      <td>${p.min_order_amount > 0 ? fmt.format(p.min_order_amount) : '—'}</td>
+      <td style="font-size:0.8rem">${fmtDate(p.starts_at)} → ${fmtDate(p.ends_at)}</td>
+      <td>${p.times_used}${p.usage_limit ? ` / ${p.usage_limit}` : ''}</td>
+      <td><span class="badge ${p.is_valid ? 'badge-ok' : 'badge-cancelled'}">${p.is_valid ? 'Vigente' : 'Inactiva'}</span></td>
+      <td><button class="btn btn-ghost" style="font-size:0.8rem" onclick="editar(${p.id})">Editar</button></td>
+    </tr>`).join('');
+  }
+
+  function toLocalDatetime(isoStr) {
+    if (!isoStr) return '';
+    return new Date(isoStr).toISOString().slice(0, 16);
+  }
+
+  window.editar = function(id) {
+    const p = promos.find(x => x.id === id);
+    document.getElementById('promo-id').value = p.id;
+    document.getElementById('modal-promo-title').textContent = 'Editar promoción';
+    document.getElementById('promo-name').value = p.name;
+    document.getElementById('promo-code').value = p.code;
+    document.getElementById('promo-type').value = p.discount_type;
+    document.getElementById('promo-value').value = p.discount_value;
+    document.getElementById('promo-min').value = p.min_order_amount;
+    document.getElementById('promo-limit').value = p.usage_limit ?? '';
+    document.getElementById('promo-starts').value = toLocalDatetime(p.starts_at);
+    document.getElementById('promo-ends').value = toLocalDatetime(p.ends_at);
+    document.getElementById('promo-active').value = String(p.is_active);
+    document.getElementById('btn-promo-delete').style.display = 'inline-flex';
+    document.getElementById('modal-promo-error').style.display = 'none';
+    document.getElementById('modal-promo').style.display = 'flex';
+  };
+
+  document.getElementById('btn-nueva-promo').onclick = () => {
+    document.getElementById('promo-id').value = '';
+    document.getElementById('modal-promo-title').textContent = 'Nueva promoción';
+    ['promo-name','promo-code','promo-value','promo-limit','promo-starts','promo-ends'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('promo-min').value = '0';
+    document.getElementById('promo-type').value = 'percentage';
+    document.getElementById('promo-active').value = 'true';
+    document.getElementById('btn-promo-delete').style.display = 'none';
+    document.getElementById('modal-promo-error').style.display = 'none';
+    document.getElementById('modal-promo').style.display = 'flex';
+  };
+
+  document.getElementById('btn-promo-cancel').onclick = () => document.getElementById('modal-promo').style.display = 'none';
+
+  document.getElementById('btn-promo-save').onclick = async () => {
+    const id = document.getElementById('promo-id').value;
+    const errEl = document.getElementById('modal-promo-error');
+    const body = {
+      name: document.getElementById('promo-name').value,
+      code: document.getElementById('promo-code').value.toUpperCase(),
+      discount_type: document.getElementById('promo-type').value,
+      discount_value: document.getElementById('promo-value').value,
+      min_order_amount: document.getElementById('promo-min').value || '0',
+      usage_limit: document.getElementById('promo-limit').value || null,
+      starts_at: new Date(document.getElementById('promo-starts').value).toISOString(),
+      ends_at: new Date(document.getElementById('promo-ends').value).toISOString(),
+      is_active: document.getElementById('promo-active').value === 'true',
+    };
+    const url = id ? `${api}/promotions/${id}/` : `${api}/promotions/`;
+    const method = id ? 'PUT' : 'POST';
+    const res = await fetch(url, {
+      method, headers: { Authorization: `Token ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      errEl.textContent = Object.values(err).flat().join(' ');
+      errEl.style.display = 'block';
+      return;
+    }
+    document.getElementById('modal-promo').style.display = 'none';
+    cargar();
+  };
+
+  document.getElementById('btn-promo-delete').onclick = async () => {
+    if (!confirm('¿Eliminar esta promoción?')) return;
+    const id = document.getElementById('promo-id').value;
+    await fetch(`${api}/promotions/${id}/`, { method: 'DELETE', headers: { Authorization: `Token ${token}` } });
+    document.getElementById('modal-promo').style.display = 'none';
+    cargar();
+  };
+
+  cargar();
+</script>

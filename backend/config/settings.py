@@ -24,11 +24,16 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
     "rest_framework.authtoken",
+    "django_filters",
     "apps.common",
     "apps.users",
     "apps.menu",
     "apps.orders",
     "apps.reservations",
+    "apps.promotions",
+    "apps.inventory",
+    "apps.suppliers",
+    "apps.billing",
 ]
 
 MIDDLEWARE = [
@@ -105,4 +110,5 @@ CORS_ALLOWED_ORIGINS = get_env_list("DJANGO_CORS_ALLOWED_ORIGINS", "http://local
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ("rest_framework.authentication.TokenAuthentication",),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+    "DEFAULT_FILTER_BACKENDS": ("django_filters.rest_framework.DjangoFilterBackend",),
 }

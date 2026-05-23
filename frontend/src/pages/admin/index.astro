@@ -1,0 +1,82 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
+---
+
+<AdminLayout title="Dashboard | Gustos y Sabores">
+  <div class="kpi-grid" id="kpi-grid">
+    <div class="kpi-card"><span class="kpi-label">Cargando...</span></div>
+  </div>
+
+  <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+    <div class="admin-card">
+      <div class="section-header">
+        <span class="section-title">Pedidos por estado</span>
+      </div>
+      <div id="orders-status-list"></div>
+    </div>
+    <div class="admin-card">
+      <div class="section-header">
+        <span class="section-title">Reservas por estado</span>
+      </div>
+      <div id="reservas-status-list"></div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script define:vars={{ api }}>
+  const token = localStorage.getItem('gustos_token');
+  const fmt = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' });
+
+  const STATUS_LABELS = {
+    pending: 'Pendiente', preparing: 'En preparación', ready: 'Listo',
+    delivered: 'Entregado', cancelled: 'Cancelado',
+    confirmed: 'Confirmada',
+  };
+
+  async function load() {
+    const res = await fetch(`${api}/dashboard/kpis/`, {
+      headers: { Authorization: `Token ${token}` },
+    });
+    if (!res.ok) return;
+    const d = await res.json();
+
+    document.getElementById('kpi-grid').innerHTML = `
+      <div class="kpi-card">
+        <span class="kpi-label">Total pedidos</span>
+        <span class="kpi-value">${d.orders_total}</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">Ingresos</span>
+        <span class="kpi-value" style="font-size:1.5rem">${fmt.format(d.orders_revenue)}</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">Total reservas</span>
+        <span class="kpi-value">${d.reservations_total}</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">Platos disponibles</span>
+        <span class="kpi-value">${d.available_dishes}</span>
+        <span class="kpi-sub">de ${d.dishes_total} en total</span>
+      </div>
+    `;
+
+    document.getElementById('orders-status-list').innerHTML =
+      Object.entries(d.orders_by_status).map(([k, v]) =>
+        `<div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid var(--line)">
+          <span>${STATUS_LABELS[k] ?? k}</span>
+          <strong>${v}</strong>
+        </div>`
+      ).join('') || '<p style="color:var(--ink-soft);font-size:0.9rem">Sin datos aún</p>';
+
+    document.getElementById('reservas-status-list').innerHTML =
+      Object.entries(d.reservations_by_status).map(([k, v]) =>
+        `<div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid var(--line)">
+          <span>${STATUS_LABELS[k] ?? k}</span>
+          <strong>${v}</strong>
+        </div>`
+      ).join('') || '<p style="color:var(--ink-soft);font-size:0.9rem">Sin datos aún</p>';
+  }
+
+  load();
+</script>
