@@ -66,3 +66,10 @@ class OrderStatusUpdateView(APIView):
         order.status = new_status
         order.save(update_fields=["status"])
         return Response(OrderSerializer(order).data)
+
+
+class OrderDetailView(generics.RetrieveAPIView):
+    """GET /api/orders/{pk}/ — vista de detalle para staff/admin."""
+    queryset = Order.objects.all()
+    serializer_class = OrderSerializer
+    permission_classes = [IsStaffOrAdmin]

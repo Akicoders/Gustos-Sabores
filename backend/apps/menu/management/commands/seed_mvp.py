@@ -37,10 +37,30 @@ SEED_DATA = {
 }
 
 
+from apps.users.models import User
+
 class Command(BaseCommand):
     help = "Carga categorias y platos iniciales para el MVP."
 
     def handle(self, *args, **options):
+        # Crear usuarios demo
+        self.stdout.write("Creando usuarios demo...")
+        admin, created = User.objects.get_or_create(username='admin', defaults={
+            'email': 'admin@gustos.com', 'role': 'admin', 'is_staff': True, 'is_superuser': True
+        })
+        if created:
+            admin.set_password('admin123')
+            admin.save()
+            self.stdout.write("Usuario 'admin' / 'admin123' creado.")
+
+        staff, created = User.objects.get_or_create(username='staff', defaults={
+            'email': 'staff@gustos.com', 'role': 'staff', 'is_staff': True
+        })
+        if created:
+            staff.set_password('staff123')
+            staff.save()
+            self.stdout.write("Usuario 'staff' / 'staff123' creado.")
+
         created = 0
         for category_name, dishes in SEED_DATA.items():
             category, _ = Category.objects.get_or_create(name=category_name)
@@ -61,7 +81,10 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"Seed MVP completado. Nuevos platos: {created}"))
 
     def seed_demo_activity(self):
-        Order.objects.filter(notes="demo-seed").delete()
+        from apps.billing.models import Invoice
+        demo_orders = Order.objects.filter(notes="demo-seed")
+        Invoice.objects.filter(order__in=demo_orders).delete()
+        demo_orders.delete()
         Reservation.objects.filter(notes="demo-seed").delete()
 
         demo_orders = [
@@ -98,6 +121,12 @@ class Command(BaseCommand):
             ("Equipo UTP", "utp@example.com", "977555666", 8, Reservation.Status.CONFIRMED, 3),
             ("Familia Cruz", "cruz@example.com", "977777888", 4, Reservation.Status.CANCELLED, 4),
             ("Andrea Silva", "andrea@example.com", "977999000", 3, Reservation.Status.CONFIRMED, 5),
+            ("Martín Vizcarra", "martin@example.com", "955123456", 6, Reservation.Status.PENDING, 1),
+            ("Gabriela Mistral", "gabi@example.com", "955987654", 4, Reservation.Status.CONFIRMED, 2),
+            ("César Vallejo", "cesar@example.com", "944555111", 2, Reservation.Status.PENDING, 3),
+            ("Gastón Acurio", "gaston@example.com", "988777222", 10, Reservation.Status.CONFIRMED, 1),
+            ("Rosa Maria", "rosa@example.com", "911222333", 4, Reservation.Status.CANCELLED, 2),
+            ("José Sabogal", "jose@example.com", "922444666", 5, Reservation.Status.CONFIRMED, 4),
         ]
 
         for name, email, phone, party_size, status, days in demo_reservations:

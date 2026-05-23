@@ -111,6 +111,26 @@ const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
 
   document.getElementById('btn-fact-cancel').onclick = () => document.getElementById('modal-factura').style.display = 'none';
 
+  // Autocompletar datos del cliente al ingresar el ID del pedido
+  document.getElementById('fact-order-id').oninput = async (e) => {
+    const orderId = e.target.value;
+    if (!orderId || orderId <= 0) return;
+    try {
+      const res = await fetch(`${api}/orders/${orderId}/`, {
+        headers: { Authorization: `Token ${token}` }
+      });
+      if (res.ok) {
+        const order = await res.json();
+        document.getElementById('fact-name').value = order.customer_name || '';
+        document.getElementById('fact-email').value = order.customer_email || '';
+        document.getElementById('fact-address').value = order.delivery_address || '';
+        document.getElementById('modal-fact-error').style.display = 'none';
+      }
+    } catch (err) {
+      console.error("Error al autocompletar pedido:", err);
+    }
+  };
+
   document.getElementById('btn-fact-save').onclick = async () => {
     const errEl = document.getElementById('modal-fact-error');
     const body = {
