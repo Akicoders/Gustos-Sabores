@@ -35,7 +35,16 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
       if (!response.ok) throw new Error('Credenciales invalidas');
       const data = await response.json();
       localStorage.setItem('gustos_token', data.token);
-      status.textContent = `Sesion iniciada como ${data.user.full_name || data.user.username}.`;
+      localStorage.setItem('gustos_user', JSON.stringify(data.user));
+      status.textContent = `Sesión iniciada como ${data.user.full_name || data.user.username}. Redirigiendo...`;
+
+      setTimeout(() => {
+        if (data.user.role === 'admin' || data.user.role === 'staff') {
+          window.location.href = '/admin';
+        } else {
+          window.location.href = '/';
+        }
+      }, 1000);
     } catch (error) {
       status.textContent = 'No se pudo iniciar sesion.';
     }
