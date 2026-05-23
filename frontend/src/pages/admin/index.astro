@@ -542,9 +542,8 @@ const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
         </div>
       `;
     }).join('') || '<p style="color:var(--ink-soft); font-size:0.8rem; text-align:center; padding:1rem 0;">Sin actividad reciente</p>';
-   } catch {
-     const grid = document.getElementById('kpi-grid');
-     if (grid) grid.innerHTML = '<div class="alert alert-error" style="grid-column:1/-1">No se pudieron cargar los indicadores. Verifica tu sesión e intenta recargar la página.</div>';
+   } catch (err) {
+     console.error('[dashboard] failed to load KPIs:', err);
    }
   }
 
