@@ -1,9 +1,14 @@
 import os
 from pathlib import Path
 
+import pymysql
+from dotenv import load_dotenv
+
+load_dotenv()
+pymysql.install_as_MySQLdb()
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 ROOT_DIR = BASE_DIR.parent
-
 
 def get_env_list(name: str, default: str = "") -> list[str]:
     value = os.getenv(name, default)
@@ -70,12 +75,15 @@ if os.getenv("MYSQL_HOST"):
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.mysql",
-            "NAME": os.getenv("MYSQL_DATABASE", "gustos_sabores"),
+            "NAME": os.getenv("MYSQL_DATABASE", "gustos_db"),
             "USER": os.getenv("MYSQL_USER", "gustos_user"),
             "PASSWORD": os.getenv("MYSQL_PASSWORD", "gustos_pass"),
             "HOST": os.getenv("MYSQL_HOST", "mysql"),
             "PORT": os.getenv("MYSQL_PORT", "3306"),
-            "OPTIONS": {"charset": "utf8mb4"},
+            "OPTIONS": {
+                "charset": "utf8mb4",
+                "ssl": {"ssl_mode": "VERIFY_IDENTITY"} if "tidbcloud" in os.getenv("MYSQL_HOST", "") else {}
+            },
         }
     }
 else:
