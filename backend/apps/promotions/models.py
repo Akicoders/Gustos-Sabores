@@ -39,7 +39,7 @@ class Promotion(TimeStampedModel):
         ordering = ("-starts_at",)
         constraints = [
             models.CheckConstraint(
-                condition=Q(discount_value__gt=0), name="promotion_discount_gt_0"
+                check=Q(discount_value__gt=0), name="promotion_discount_gt_0"
             )
         ]
 

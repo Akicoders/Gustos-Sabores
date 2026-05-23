@@ -60,7 +60,7 @@ class OrderItem(models.Model):
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
 
     class Meta:
-        constraints = [models.CheckConstraint(condition=Q(quantity__gt=0), name="orderitem_quantity_gt_0")]
+        constraints = [models.CheckConstraint(check=Q(quantity__gt=0), name="orderitem_quantity_gt_0")]
 
     def __str__(self) -> str:
         return f"{self.quantity} x {self.dish.name}"

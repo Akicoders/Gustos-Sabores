@@ -22,7 +22,7 @@ class Reservation(TimeStampedModel):
 
     class Meta:
         ordering = ("-reserved_at",)
-        constraints = [models.CheckConstraint(condition=Q(party_size__gt=0), name="reservation_party_size_gt_0")]
+        constraints = [models.CheckConstraint(check=Q(party_size__gt=0), name="reservation_party_size_gt_0")]
 
     def __str__(self) -> str:
         return f"Reserva #{self.pk} - {self.customer_name}"

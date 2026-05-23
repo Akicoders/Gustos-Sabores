@@ -35,7 +35,7 @@ class Dish(TimeStampedModel):
         ordering = ("name",)
         constraints = [
             models.UniqueConstraint(fields=("category", "name"), name="unique_dish_per_category"),
-            models.CheckConstraint(condition=Q(price__gte=0), name="dish_price_gte_0"),
+            models.CheckConstraint(check=Q(price__gte=0), name="dish_price_gte_0"),
         ]
 
     def save(self, *args, **kwargs):

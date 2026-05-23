@@ -33,8 +33,8 @@ class InventoryItem(TimeStampedModel):
         verbose_name_plural = "Artículos de inventario"
         ordering = ("name",)
         constraints = [
-            models.CheckConstraint(condition=Q(stock__gte=0), name="inventory_stock_gte_0"),
-            models.CheckConstraint(condition=Q(min_stock__gte=0), name="inventory_min_stock_gte_0"),
+            models.CheckConstraint(check=Q(stock__gte=0), name="inventory_stock_gte_0"),
+            models.CheckConstraint(check=Q(min_stock__gte=0), name="inventory_min_stock_gte_0"),
         ]
 
     @property
