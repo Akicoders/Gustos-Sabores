@@ -1,12 +1,11 @@
 ---
 import Layout from '../layouts/Layout.astro';
-const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
 ---
 
 <Layout title="Menú | Gustos y Sabores">
   <section class="menu-page page">
     <div class="corner corner-top" aria-hidden="true"></div>
-    <div class="menu-title">
+    <div class="menu-title" data-reveal>
       <span class="eyebrow">MENÚ</span>
       <h1>Menú de almuerzo</h1>
       <p>Selección de tu menú. Puedes personalizarla a tu gusto.</p>
@@ -48,117 +47,85 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
 </Layout>
 
 <script>
-  const status = document.querySelector('#menu-status');
-  const groups = {
+  import {
+    getCart, addToCart, changeQuantity, clearCart, cartTotal, CART_EVENT, type CartItem,
+  } from '../scripts/cart';
+  import { formatMoney } from '../scripts/format';
+  import { apiFetch } from '../scripts/api';
+  import { createTextElement, pulse, revealOnScroll } from '../scripts/dom';
+
+  interface Dish {
+    id: number;
+    name: string;
+    price: number | string;
+    description?: string;
+    category?: string;
+    image_url?: string;
+  }
+
+  type GroupKey = 'entradas' | 'fondos' | 'bebidas';
+
+  const FALLBACK_IMAGE =
+    'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=900&q=80';
+
+  const status = document.querySelector<HTMLElement>('#menu-status');
+  const menuContent = document.querySelector<HTMLElement>('.menu-content');
+  const cartItems = document.querySelector<HTMLElement>('#cart-items');
+  const cartTotalEl = document.querySelector<HTMLElement>('#cart-total');
+  const clearCartButton = document.querySelector<HTMLButtonElement>('#clear-cart');
+
+  const groups: Record<GroupKey, HTMLElement | null> = {
     entradas: document.querySelector('#entradas-grid'),
     fondos: document.querySelector('#principales-grid'),
     bebidas: document.querySelector('#bebidas-grid'),
   };
-  const cartItems = document.querySelector('#cart-items');
-  const cartTotal = document.querySelector('#cart-total');
-  const clearCart = document.querySelector('#clear-cart');
-  const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
-  const CART_KEY = 'gustos_cart';
-  const money = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' });
-  const dishesById = new Map();
 
-  function replaceChildren(target, children) {
-    target.replaceChildren(...children);
-  }
+  const dishesById = new Map<number, Dish>();
 
-  function createTextElement(tag, text, className) {
-    const element = document.createElement(tag);
-    if (className) element.className = className;
-    element.textContent = text;
-    return element;
-  }
-
-  function getCart() {
-    try {
-      return JSON.parse(localStorage.getItem(CART_KEY) || '[]');
-    } catch {
-      return [];
-    }
-  }
-
-  function saveCart(cart) {
-    localStorage.setItem(CART_KEY, JSON.stringify(cart));
-    renderCart();
-  }
-
-  function addToCart(dish) {
-    const cart = getCart();
-    const existing = cart.find((item) => item.id === dish.id);
-    if (existing) {
-      existing.quantity += 1;
-    } else {
-      cart.push({ id: dish.id, name: dish.name, price: Number(dish.price), quantity: 1, image_url: dish.image_url });
-    }
-    saveCart(cart);
-  }
-
-  function changeQuantity(id, delta) {
-    const cart = getCart()
-      .map((item) => item.id === id ? { ...item, quantity: item.quantity + delta } : item)
-      .filter((item) => item.quantity > 0);
-    saveCart(cart);
-  }
-
-  function renderCart() {
-    const cart = getCart();
-    if (!cart.length) {
-      replaceChildren(cartItems, [createTextElement('p', 'Aún no agregas platos.', 'cart-empty')]);
-      cartTotal.textContent = money.format(0);
-      return;
-    }
-    const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    replaceChildren(cartItems, cart.map((item) => {
-      const line = document.createElement('div');
-      line.className = 'cart-line';
-      line.append(createTextElement('span', `${item.name} - x${item.quantity}`));
-
-      const controls = document.createElement('div');
-      controls.className = 'cart-controls';
-      const minus = document.createElement('button');
-      minus.type = 'button';
-      minus.dataset.cartMinus = String(item.id);
-      minus.textContent = '-';
-      minus.setAttribute('aria-label', `Quitar ${item.name}`);
-      const plus = document.createElement('button');
-      plus.type = 'button';
-      plus.dataset.cartPlus = String(item.id);
-      plus.textContent = '+';
-      plus.setAttribute('aria-label', `Agregar ${item.name}`);
-      controls.append(minus, plus);
-      line.append(controls);
-      return line;
-    }));
-    cartTotal.textContent = money.format(total);
-  }
-
-  function normalizeCategory(category) {
-    const text = String(category || '').toLowerCase();
+  function normalizeCategory(category: unknown): GroupKey {
+    const text = String(category ?? '').toLowerCase();
     if (text.includes('entrada')) return 'entradas';
     if (text.includes('bebida')) return 'bebidas';
     return 'fondos';
   }
 
-  function createDishCard(dish) {
-    const image = dish.image_url || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=900&q=80';
+  function showSkeletons() {
+    (Object.values(groups) as (HTMLElement | null)[]).forEach((group) => {
+      if (!group) return;
+      const placeholders = Array.from({ length: 2 }, () => {
+        const card = document.createElement('div');
+        card.className = 'menu-dish skeleton-dish';
+        card.innerHTML =
+          '<div class="skeleton skeleton-card"></div>' +
+          '<div><div class="skeleton skeleton-line" style="width:60%"></div>' +
+          '<div class="skeleton skeleton-line" style="width:90%"></div></div>' +
+          '<div class="skeleton skeleton-line" style="width:70px;height:2rem"></div>';
+        return card;
+      });
+      group.replaceChildren(...placeholders);
+    });
+  }
+
+  function createDishCard(dish: Dish): HTMLElement {
     const article = document.createElement('article');
     article.className = 'menu-dish';
+    article.setAttribute('data-reveal', '');
 
     const img = document.createElement('img');
-    img.src = image;
+    img.src = dish.image_url || FALLBACK_IMAGE;
     img.alt = dish.name;
     img.loading = 'lazy';
+    img.addEventListener('error', () => { img.src = FALLBACK_IMAGE; });
 
     const body = document.createElement('div');
-    body.append(createTextElement('h3', dish.name), createTextElement('p', dish.description || 'Plato disponible del restaurante.'));
+    body.append(
+      createTextElement('h3', dish.name),
+      createTextElement('p', dish.description || 'Plato disponible del restaurante.'),
+    );
 
     const actions = document.createElement('div');
     actions.className = 'dish-actions';
-    actions.append(createTextElement('strong', money.format(Number(dish.price))));
+    actions.append(createTextElement('strong', formatMoney(Number(dish.price))));
     const button = document.createElement('button');
     button.type = 'button';
     button.dataset.dishId = String(dish.id);
@@ -169,35 +136,83 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
     return article;
   }
 
+  function renderCart() {
+    if (!cartItems || !cartTotalEl) return;
+    const cart = getCart();
+    if (!cart.length) {
+      cartItems.replaceChildren(createTextElement('p', 'Aún no agregas platos.', 'cart-empty'));
+      cartTotalEl.textContent = formatMoney(0);
+      return;
+    }
+    cartItems.replaceChildren(
+      ...cart.map((item: CartItem) => {
+        const line = document.createElement('div');
+        line.className = 'cart-line';
+        line.append(createTextElement('span', `${item.name} - x${item.quantity}`));
+
+        const controls = document.createElement('div');
+        controls.className = 'cart-controls';
+        const minus = document.createElement('button');
+        minus.type = 'button';
+        minus.dataset.cartMinus = String(item.id);
+        minus.textContent = '-';
+        minus.setAttribute('aria-label', `Quitar ${item.name}`);
+        const plus = document.createElement('button');
+        plus.type = 'button';
+        plus.dataset.cartPlus = String(item.id);
+        plus.textContent = '+';
+        plus.setAttribute('aria-label', `Agregar ${item.name}`);
+        controls.append(minus, plus);
+        line.append(controls);
+        return line;
+      }),
+    );
+    cartTotalEl.textContent = formatMoney(cartTotal(cart));
+  }
+
   async function loadMenu() {
+    showSkeletons();
     try {
-      const response = await fetch(`${api}/menu/dishes/`);
-      if (!response.ok) throw new Error('No se pudo cargar el menu');
-      const dishes = await response.json();
+      const dishes = await apiFetch<Dish[]>('/menu/dishes/');
       dishesById.clear();
-      Object.values(groups).forEach((group) => group.replaceChildren());
+      (Object.values(groups) as (HTMLElement | null)[]).forEach((group) => group?.replaceChildren());
       dishes.forEach((dish) => {
         dishesById.set(Number(dish.id), dish);
-        const key = normalizeCategory(dish.category);
-        groups[key].append(createDishCard(dish));
+        const target = groups[normalizeCategory(dish.category)];
+        target?.append(createDishCard(dish));
       });
-      status.textContent = `${dishes.length} platos disponibles.`;
-      document.querySelectorAll('[data-dish-id]').forEach((button) => {
-        button.addEventListener('click', () => addToCart(dishesById.get(Number(button.dataset.dishId))));
-      });
-    } catch (error) {
-      status.textContent = 'No se pudo conectar con la API. Revisa que Django esté corriendo.';
+      if (status) status.textContent = `${dishes.length} platos disponibles.`;
+      revealOnScroll('.menu-dish[data-reveal]');
+    } catch {
+      (Object.values(groups) as (HTMLElement | null)[]).forEach((group) => group?.replaceChildren());
+      if (status) {
+        status.textContent = 'No se pudo conectar con la API. Revisa que el backend esté corriendo.';
+        status.classList.add('is-error');
+      }
     }
   }
 
+  // Event delegation: add-to-cart for any current or future dish button
+  menuContent?.addEventListener('click', (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-dish-id]');
+    if (!button) return;
+    const dish = dishesById.get(Number(button.dataset.dishId));
+    if (!dish) return;
+    addToCart(dish);
+    pulse(button);
+    button.textContent = 'Agregado ✓';
+    window.setTimeout(() => { button.textContent = 'Agregar'; }, 900);
+  });
+
   cartItems?.addEventListener('click', (event) => {
-    const minus = event.target.closest('[data-cart-minus]');
-    const plus = event.target.closest('[data-cart-plus]');
+    const minus = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-cart-minus]');
+    const plus = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-cart-plus]');
     if (minus) changeQuantity(Number(minus.dataset.cartMinus), -1);
     if (plus) changeQuantity(Number(plus.dataset.cartPlus), 1);
   });
 
-  clearCart?.addEventListener('click', () => saveCart([]));
+  clearCartButton?.addEventListener('click', () => clearCart());
+  document.addEventListener(CART_EVENT, renderCart);
 
   renderCart();
   loadMenu();
@@ -252,6 +267,12 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
     color: var(--jade);
     font-weight: 900;
     text-transform: uppercase;
+    transition: color 0.18s ease, padding-left 0.18s ease;
+  }
+
+  .category-rail a:hover {
+    color: var(--jade-3);
+    padding-left: 0.4rem;
   }
 
   .menu-section {
@@ -279,6 +300,13 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
     background: white;
     border: 1px solid var(--line);
     border-left: 8px solid var(--jade);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-left-color 0.2s ease;
+  }
+
+  .menu-dish:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 18px 40px rgba(0, 63, 53, 0.14);
+    border-left-color: var(--accent);
   }
 
   .menu-dish img {
@@ -289,7 +317,13 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
     object-position: center;
     border-radius: 4px;
     box-shadow: 0 12px 26px rgba(0, 63, 53, 0.12);
+    transition: transform 0.3s ease;
   }
+
+  .menu-dish:hover img { transform: scale(1.05); }
+
+  .skeleton-dish { pointer-events: none; border-left-color: var(--line); }
+  .skeleton-dish:hover { transform: none; box-shadow: none; }
 
   .menu-dish h3 { margin-bottom: 0.35rem; }
   .menu-dish p { margin: 0; overflow-wrap: anywhere; }

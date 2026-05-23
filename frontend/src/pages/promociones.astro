@@ -1,17 +1,18 @@
 ---
 import Layout from '../layouts/Layout.astro';
-const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
 ---
 
 <Layout title="Promociones | Gustos y Sabores">
-  <section class="promos-page page" data-api={apiUrl}>
-    <span class="eyebrow">PROMOCIONES</span>
-    <h1>Combos para compartir</h1>
-    <p>Promociones demo no modeladas en backend. Al agregarlas se envía el plato real asociado, con precio real de carta.</p>
+  <section class="promos-page page">
+    <div data-reveal>
+      <span class="eyebrow">PROMOCIONES</span>
+      <h1>Combos para compartir</h1>
+      <p>Combos destacados que agregan el plato real asociado a tu carrito, con el precio vigente de la carta.</p>
+    </div>
 
-    <div class="promo-grid">
-      <article class="promo-card" data-dish-name="Arroz con pato" data-promo-name="Combo Norteño">
-        <img src="https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=900&q=80" alt="Combo norteño" />
+    <div class="promo-grid" data-reveal-group>
+      <article class="promo-card" data-dish-name="Arroz con pato" data-promo-name="Combo Norteño" data-reveal>
+        <img src="https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=900&q=80" alt="Combo norteño" loading="lazy" />
         <div>
           <h2>Combo Norteño</h2>
           <p>Arroz con pato + bebida tradicional.</p>
@@ -20,8 +21,8 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
         </div>
       </article>
 
-      <article class="promo-card" data-dish-name="Lomo saltado" data-promo-name="Lomo para dos">
-        <img src="https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?auto=format&fit=crop&w=900&q=80" alt="Lomo para dos" />
+      <article class="promo-card" data-dish-name="Lomo saltado" data-promo-name="Lomo para dos" data-reveal>
+        <img src="https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?auto=format&fit=crop&w=900&q=80" alt="Lomo para dos" loading="lazy" />
         <div>
           <h2>Lomo para dos</h2>
           <p>Lomo saltado familiar con refresco.</p>
@@ -30,8 +31,8 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
         </div>
       </article>
 
-      <article class="promo-card" data-dish-name="Ceviche clasico" data-promo-name="Ceviche y chicha">
-        <img src="https://images.unsplash.com/photo-1626200419199-391ae4be7a41?auto=format&fit=crop&w=900&q=80" alt="Ceviche y chicha" />
+      <article class="promo-card" data-dish-name="Ceviche clasico" data-promo-name="Ceviche y chicha" data-reveal>
+        <img src="https://images.unsplash.com/photo-1626200419199-391ae4be7a41?auto=format&fit=crop&w=900&q=80" alt="Ceviche y chicha" loading="lazy" />
         <div>
           <h2>Ceviche y chicha</h2>
           <p>Ceviche clásico + chicha morada.</p>
@@ -47,68 +48,76 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
 </Layout>
 
 <script>
-  const CART_KEY = 'gustos_cart';
-  const status = document.querySelector('#promo-status');
-  const api = document.querySelector('.promos-page').dataset.api;
-  let dishes = [];
-  const money = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' });
+  import { addToCart } from '../scripts/cart';
+  import { formatMoney } from '../scripts/format';
+  import { apiFetch } from '../scripts/api';
+  import { pulse } from '../scripts/dom';
 
-  function getCart() {
-    try { return JSON.parse(localStorage.getItem(CART_KEY) || '[]'); } catch { return []; }
+  interface Dish {
+    id: number;
+    name: string;
+    price: number | string;
+    image_url?: string;
   }
 
-  function saveCart(cart) {
-    localStorage.setItem(CART_KEY, JSON.stringify(cart));
+  const status = document.querySelector<HTMLElement>('#promo-status');
+  const grid = document.querySelector<HTMLElement>('.promo-grid');
+  let dishes: Dish[] = [];
+
+  function setStatus(message: string, kind: 'error' | 'success' | '' = '') {
+    if (!status) return;
+    status.textContent = message;
+    status.classList.toggle('is-error', kind === 'error');
+    status.classList.toggle('is-success', kind === 'success');
+  }
+
+  function findDish(name: string | undefined): Dish | undefined {
+    return dishes.find((item) => item.name === name);
   }
 
   async function loadDishes() {
-    const response = await fetch(`${api}/menu/dishes/`);
-    dishes = await response.json();
-    document.querySelectorAll('[data-dish-name]').forEach((card) => {
-      const dish = dishes.find((item) => item.name === card.dataset.dishName);
-      const price = card.querySelector('[data-promo-price]');
-      const button = card.querySelector('button');
+    try {
+      dishes = await apiFetch<Dish[]>('/menu/dishes/');
+    } catch {
+      setStatus('No se pudo cargar el menú para promociones.', 'error');
+      return;
+    }
+    document.querySelectorAll<HTMLElement>('[data-dish-name]').forEach((card) => {
+      const dish = findDish(card.dataset.dishName);
+      const price = card.querySelector<HTMLElement>('[data-promo-price]');
+      const button = card.querySelector<HTMLButtonElement>('button');
       if (!dish) {
-        price.textContent = 'No disponible en carta';
-        button.disabled = true;
+        if (price) price.textContent = 'No disponible en carta';
+        if (button) button.disabled = true;
         return;
       }
-      price.textContent = `${money.format(Number(dish.price))} en carta`;
+      if (price) price.textContent = `${formatMoney(Number(dish.price))} en carta`;
     });
   }
 
-  document.querySelectorAll('[data-dish-name] button').forEach((button) => {
-    button.addEventListener('click', () => {
-      const card = button.closest('[data-dish-name]');
-      const dish = dishes.find((item) => item.name === card.dataset.dishName);
-      if (!dish) {
-        status.textContent = 'No se pudo encontrar el plato de esta promoción en la API.';
-        return;
-      }
-      const cartItem = {
-        id: dish.id,
-        name: dish.name,
-        price: Number(dish.price),
-        quantity: 1,
-        image_url: dish.image_url,
-      };
-      const cart = getCart();
-      const existing = cart.find((item) => item.id === cartItem.id);
-      if (existing) existing.quantity += 1;
-      else cart.push(cartItem);
-      saveCart(cart);
-      status.textContent = `${card.dataset.promoName}: se agrego ${dish.name} con precio real de carta (${money.format(Number(dish.price))}).`;
-    });
+  grid?.addEventListener('click', (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-dish-name] button');
+    if (!button) return;
+    const card = button.closest<HTMLElement>('[data-dish-name]');
+    const dish = findDish(card?.dataset.dishName);
+    if (!dish) {
+      setStatus('No se pudo encontrar el plato de esta promoción en la carta.', 'error');
+      return;
+    }
+    addToCart(dish);
+    pulse(button);
+    setStatus(
+      `${card?.dataset.promoName}: se agregó ${dish.name} a tu carrito (${formatMoney(Number(dish.price))}).`,
+      'success',
+    );
   });
 
-  loadDishes().catch(() => {
-    status.textContent = 'No se pudo cargar el menú para promociones.';
-  });
+  loadDishes();
 </script>
 
 <style>
   .promos-page { text-align: center; }
-  .promos-page > p { max-width: 620px; margin-inline: auto; }
+  .promos-page > div > p { max-width: 620px; margin-inline: auto; }
 
   .promo-grid {
     display: grid;
@@ -124,13 +133,22 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
     background: white;
     border: 1px solid var(--line);
     box-shadow: 0 18px 55px rgba(0, 63, 53, 0.1);
+    transition: transform 0.22s ease, box-shadow 0.22s ease;
+  }
+
+  .promo-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 26px 70px rgba(0, 63, 53, 0.18);
   }
 
   .promo-card img {
     width: 100%;
     height: 190px;
     object-fit: cover;
+    transition: transform 0.35s ease;
   }
+
+  .promo-card:hover img { transform: scale(1.06); }
 
   .promo-card div {
     display: grid;

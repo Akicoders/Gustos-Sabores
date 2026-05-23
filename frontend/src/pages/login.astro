@@ -20,33 +20,51 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
 </Layout>
 
 <script>
-  const form = document.querySelector('#login-form');
-  const status = document.querySelector('#login-status');
+  import { apiFetch, ApiError } from '../scripts/api';
+
+  interface LoginResponse {
+    token: string;
+    user: { full_name?: string; username: string; role: string };
+  }
+
+  const form = document.querySelector<HTMLFormElement>('#login-form');
+  const status = document.querySelector<HTMLParagraphElement>('#login-status');
+  const submitButton = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
+
+  function setStatus(message: string, kind: 'error' | 'success' | '' = '') {
+    if (!status) return;
+    status.textContent = message;
+    status.classList.toggle('is-error', kind === 'error');
+    status.classList.toggle('is-success', kind === 'success');
+  }
 
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const payload = Object.fromEntries(new FormData(form).entries());
+
+    if (submitButton) submitButton.disabled = true;
+    setStatus('Verificando credenciales...');
+
     try {
-      const response = await fetch(`${form.dataset.api}/auth/login/`, {
+      const data = await apiFetch<LoginResponse>('/auth/login/', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      if (!response.ok) throw new Error('Credenciales invalidas');
-      const data = await response.json();
       localStorage.setItem('gustos_token', data.token);
       localStorage.setItem('gustos_user', JSON.stringify(data.user));
-      status.textContent = `Sesión iniciada como ${data.user.full_name || data.user.username}. Redirigiendo...`;
+      setStatus(`Sesión iniciada como ${data.user.full_name || data.user.username}. Redirigiendo...`, 'success');
 
-      setTimeout(() => {
-        if (data.user.role === 'admin' || data.user.role === 'staff') {
-          window.location.href = '/admin';
-        } else {
-          window.location.href = '/';
-        }
-      }, 1000);
+      const target = data.user.role === 'admin' || data.user.role === 'staff' ? '/admin' : '/';
+      setTimeout(() => { window.location.href = target; }, 1000);
     } catch (error) {
-      status.textContent = 'No se pudo iniciar sesion.';
+      const message =
+        error instanceof ApiError && error.status === 400
+          ? 'Usuario o contraseña incorrectos.'
+          : error instanceof ApiError
+            ? error.message
+            : 'No se pudo iniciar sesión.';
+      setStatus(message, 'error');
+      if (submitButton) submitButton.disabled = false;
     }
   });
 </script>

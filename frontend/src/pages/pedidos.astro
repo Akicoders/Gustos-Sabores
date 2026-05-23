@@ -6,19 +6,18 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
 <Layout title="Pago | Gustos y Sabores">
   <section class="payment-page page">
     <p class="breadcrumb">Inicio &nbsp;&gt;&nbsp; Menú &nbsp;&gt;&nbsp; Pago</p>
-    <div class="payment-heading">
+    <div class="payment-heading" data-reveal>
       <span class="eyebrow">Compra</span>
       <h1>Detalles del pago anticipado</h1>
-      <p>Tu carrito se mantendrá durante <strong>09:59 minutos</strong>.</p>
+      <p>Tu carrito se mantendrá reservado durante <strong id="cart-timer">10:00</strong> minutos.</p>
     </div>
 
     <div class="payment-layout">
-      <form id="order-form" class="payment-form" data-api={apiUrl}>
+      <form id="order-form" class="payment-form" data-api={apiUrl} data-reveal>
         <h2>Ingresa tus datos:</h2>
         <div class="form-grid">
           <label>Nombre completo *<input name="customer_name" required /></label>
           <label>Dirección de email *<input name="customer_email" type="email" required /></label>
-          <label>Documento de Identidad *<input name="document" /></label>
           <label>Numero de teléfono *<input name="customer_phone" required /></label>
           <label>Tipo de entrega
             <select name="order_type"><option value="local">Recojo/local</option><option value="delivery">Delivery</option></select>
@@ -26,148 +25,242 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
           <label>Metodo de pago
             <select name="payment_method"><option value="cash">Contra entrega</option><option value="yape">Pago digital</option><option value="card">Tarjeta</option></select>
           </label>
-          <label class="full">Direccion delivery<input name="delivery_address" /></label>
+          <label id="delivery-address-field" class="full">Dirección de delivery<input name="delivery_address" /></label>
           <label id="manual-dish-field" class="full">Plato
             <select id="dish-select" name="dish_id" required><option value="">Cargando platos...</option></select>
           </label>
           <label id="manual-quantity-field">Cantidad<input name="quantity" type="number" min="1" value="1" required /></label>
+          <label class="full">Código de promoción<input name="promotion_code" placeholder="Opcional (ej: BIENVENIDA10)" /></label>
           <label class="full">Notas<textarea name="notes" placeholder="Indicaciones para cocina o entrega."></textarea></label>
         </div>
-        <button type="submit">Continuar el pago</button>
+        <button type="submit" id="submit-order">Continuar el pago</button>
         <p id="order-status" class="status" aria-live="polite"></p>
       </form>
 
-      <aside class="checkout-card">
+      <aside class="checkout-card" data-reveal>
         <h2>Detalles del carrito:</h2>
         <div id="checkout-items" aria-live="polite"></div>
         <a href="/menu">Cambiar selección</a>
-        <div class="total-row"><span>Tarifa total</span><strong id="checkout-total">S/ 0.00</strong></div>
+        <div class="totals">
+          <div class="total-line"><span>Subtotal</span><span id="checkout-subtotal">S/ 0.00</span></div>
+          <div class="total-row"><span>Tarifa total</span><strong id="checkout-total">S/ 0.00</strong></div>
+        </div>
+        <p class="promo-hint">Si ingresaste un código de promoción válido, el descuento se aplicará al confirmar.</p>
       </aside>
     </div>
   </section>
 </Layout>
 
 <script>
-  const form = document.querySelector('#order-form');
-  const select = document.querySelector('#dish-select');
-  const status = document.querySelector('#order-status');
-  const checkoutItems = document.querySelector('#checkout-items');
-  const checkoutTotal = document.querySelector('#checkout-total');
-  const manualDishField = document.querySelector('#manual-dish-field');
-  const manualQuantityField = document.querySelector('#manual-quantity-field');
-  const api = form?.dataset.api;
-  const CART_KEY = 'gustos_cart';
-  const money = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' });
+  import { getCart, clearCart, cartTotal, CART_EVENT, type CartItem } from '../scripts/cart';
+  import { formatMoney } from '../scripts/format';
+  import { apiFetch, ApiError } from '../scripts/api';
+  import { createTextElement } from '../scripts/dom';
 
-  function setManualFieldsEnabled(enabled) {
-    manualDishField.style.display = enabled ? '' : 'none';
-    manualQuantityField.style.display = enabled ? '' : 'none';
-    manualDishField.querySelectorAll('select, input').forEach((field) => {
-      field.disabled = !enabled;
-      field.required = enabled;
-    });
-    manualQuantityField.querySelectorAll('select, input').forEach((field) => {
-      field.disabled = !enabled;
-      field.required = enabled;
-    });
+  interface Dish {
+    id: number;
+    name: string;
+    price: number | string;
   }
 
-  function createTextElement(tag, text, className) {
-    const element = document.createElement(tag);
-    if (className) element.className = className;
-    element.textContent = text;
-    return element;
+  interface CreatedOrder {
+    id: number;
+    subtotal: string;
+    discount_amount: string;
+    total: string;
   }
 
-  function getCart() {
-    try {
-      return JSON.parse(localStorage.getItem(CART_KEY) || '[]');
-    } catch {
-      return [];
+  const form = document.querySelector<HTMLFormElement>('#order-form');
+  const select = document.querySelector<HTMLSelectElement>('#dish-select');
+  const status = document.querySelector<HTMLParagraphElement>('#order-status');
+  const checkoutItems = document.querySelector<HTMLDivElement>('#checkout-items');
+  const checkoutSubtotal = document.querySelector<HTMLElement>('#checkout-subtotal');
+  const checkoutTotal = document.querySelector<HTMLElement>('#checkout-total');
+  const submitButton = document.querySelector<HTMLButtonElement>('#submit-order');
+  const manualDishField = document.querySelector<HTMLLabelElement>('#manual-dish-field');
+  const manualQuantityField = document.querySelector<HTMLLabelElement>('#manual-quantity-field');
+  const deliveryField = document.querySelector<HTMLLabelElement>('#delivery-address-field');
+  const orderTypeSelect = form?.querySelector<HTMLSelectElement>('[name="order_type"]');
+  const deliveryInput = form?.querySelector<HTMLInputElement>('[name="delivery_address"]');
+  const timerEl = document.querySelector<HTMLElement>('#cart-timer');
+
+  if (form && select && status && checkoutItems && checkoutSubtotal && checkoutTotal && submitButton) {
+    const DEADLINE_KEY = 'gustos_cart_deadline';
+    const HOLD_MS = 10 * 60 * 1000;
+
+    function setStatus(message: string, kind: 'error' | 'success' | '' = '') {
+      status!.textContent = message;
+      status!.classList.toggle('is-error', kind === 'error');
+      status!.classList.toggle('is-success', kind === 'success');
     }
-  }
 
-  function renderCheckoutCart() {
-    const cart = getCart();
-    if (!cart.length) {
-      checkoutItems.replaceChildren(createTextElement('p', 'No hay platos en el carrito. Puedes seleccionar uno manualmente.'));
-      checkoutTotal.textContent = money.format(0);
-      setManualFieldsEnabled(true);
-      return;
+    function setManualFieldsEnabled(enabled: boolean) {
+      [manualDishField, manualQuantityField].forEach((field) => {
+        if (!field) return;
+        field.hidden = !enabled;
+        field.querySelectorAll<HTMLInputElement | HTMLSelectElement>('select, input').forEach((control) => {
+          control.disabled = !enabled;
+          control.required = enabled;
+        });
+      });
     }
-    setManualFieldsEnabled(false);
-    const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    checkoutItems.replaceChildren(...cart.map((item) => {
-      const row = document.createElement('div');
-      row.className = 'cart-row';
-      row.append(
-        createTextElement('span', `${item.name} - x${item.quantity}`),
-        createTextElement('strong', money.format(item.price * item.quantity)),
+
+    function syncDeliveryRequirement() {
+      const isDelivery = orderTypeSelect?.value === 'delivery';
+      if (deliveryInput) deliveryInput.required = isDelivery;
+      deliveryField?.classList.toggle('is-required', Boolean(isDelivery));
+    }
+
+    function renderCheckoutCart() {
+      const cart = getCart();
+      if (!cart.length) {
+        checkoutItems!.replaceChildren(
+          createTextElement('p', 'No hay platos en el carrito. Puedes seleccionar uno manualmente.'),
+        );
+        checkoutSubtotal!.textContent = formatMoney(0);
+        checkoutTotal!.textContent = formatMoney(0);
+        setManualFieldsEnabled(true);
+        return;
+      }
+      setManualFieldsEnabled(false);
+      const total = cartTotal(cart);
+      checkoutItems!.replaceChildren(
+        ...cart.map((item: CartItem) => {
+          const row = document.createElement('div');
+          row.className = 'cart-row';
+          row.append(
+            createTextElement('span', `${item.name} - x${item.quantity}`),
+            createTextElement('strong', formatMoney(item.price * item.quantity)),
+          );
+          return row;
+        }),
       );
-      return row;
-    }));
-    checkoutTotal.textContent = money.format(total);
-  }
+      checkoutSubtotal!.textContent = formatMoney(total);
+      checkoutTotal!.textContent = formatMoney(total);
+    }
 
-  async function loadDishes() {
-    try {
-      const response = await fetch(`${api}/menu/dishes/`);
-      const dishes = await response.json();
-      const placeholder = document.createElement('option');
-      placeholder.value = '';
-      placeholder.textContent = 'Selecciona un plato';
-      const options = dishes.map((dish) => {
+    // --- Countdown: persist a 10 min hold; clear cart on expiry ---
+    function getDeadline(): number {
+      const cart = getCart();
+      if (!cart.length) {
+        localStorage.removeItem(DEADLINE_KEY);
+        return 0;
+      }
+      const stored = Number(localStorage.getItem(DEADLINE_KEY));
+      if (stored && stored > Date.now()) return stored;
+      const fresh = Date.now() + HOLD_MS;
+      localStorage.setItem(DEADLINE_KEY, String(fresh));
+      return fresh;
+    }
+
+    function tickTimer() {
+      if (!timerEl) return;
+      const deadline = getDeadline();
+      if (!deadline) {
+        timerEl.textContent = '10:00';
+        return;
+      }
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        clearCart();
+        localStorage.removeItem(DEADLINE_KEY);
+        timerEl.textContent = '00:00';
+        renderCheckoutCart();
+        setStatus('El tiempo de reserva del carrito expiró. Vuelve a elegir tus platos.', 'error');
+        return;
+      }
+      const minutes = Math.floor(remaining / 60000);
+      const seconds = Math.floor((remaining % 60000) / 1000);
+      timerEl.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    async function loadDishes() {
+      try {
+        const dishes = await apiFetch<Dish[]>('/menu/dishes/');
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = 'Selecciona un plato';
+        const options = dishes.map((dish) => {
+          const option = document.createElement('option');
+          option.value = String(dish.id);
+          option.textContent = `${dish.name} - ${formatMoney(Number(dish.price))}`;
+          return option;
+        });
+        select!.replaceChildren(placeholder, ...options);
+      } catch {
         const option = document.createElement('option');
-        option.value = String(dish.id);
-        option.textContent = `${dish.name} - ${money.format(Number(dish.price))}`;
-        return option;
-      });
-      select.replaceChildren(placeholder, ...options);
-    } catch (error) {
-      const option = document.createElement('option');
-      option.value = '';
-      option.textContent = 'No se pudo cargar el menu';
-      select.replaceChildren(option);
+        option.value = '';
+        option.textContent = 'No se pudo cargar el menú';
+        select!.replaceChildren(option);
+      }
     }
-  }
 
-  form?.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const data = Object.fromEntries(new FormData(form).entries());
-    const cart = getCart();
-    const payload = {
-      customer_name: data.customer_name,
-      customer_email: data.customer_email,
-      customer_phone: data.customer_phone,
-      delivery_address: data.delivery_address,
-      order_type: data.order_type,
-      payment_method: data.payment_method,
-      notes: data.notes,
-      items: cart.length
+    orderTypeSelect?.addEventListener('change', syncDeliveryRequirement);
+    document.addEventListener(CART_EVENT, renderCheckoutCart);
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const data = Object.fromEntries(new FormData(form).entries()) as Record<string, string>;
+      const cart = getCart();
+
+      if (data.order_type === 'delivery' && !data.delivery_address?.trim()) {
+        setStatus('Ingresa una dirección de delivery para continuar.', 'error');
+        deliveryInput?.focus();
+        return;
+      }
+
+      const items = cart.length
         ? cart.map((item) => ({ dish_id: Number(item.id), quantity: Number(item.quantity) }))
-        : [{ dish_id: Number(data.dish_id), quantity: Number(data.quantity) }],
-    };
+        : [{ dish_id: Number(data.dish_id), quantity: Number(data.quantity) }];
 
-    try {
-      const response = await fetch(`${api}/orders/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) throw new Error('Pedido rechazado');
-      const order = await response.json();
-      localStorage.removeItem(CART_KEY);
-      form.reset();
-      await loadDishes();
-      renderCheckoutCart();
-      status.textContent = `Pedido #${order.id} registrado. Total: ${money.format(Number(order.total))}`;
-    } catch (error) {
-      status.textContent = 'No se pudo registrar el pedido.';
-    }
-  });
+      if (!items.length || items.some((item) => !item.dish_id)) {
+        setStatus('Selecciona al menos un plato antes de continuar.', 'error');
+        return;
+      }
 
-  renderCheckoutCart();
-  loadDishes();
+      const payload = {
+        customer_name: data.customer_name,
+        customer_email: data.customer_email,
+        customer_phone: data.customer_phone,
+        delivery_address: data.delivery_address ?? '',
+        order_type: data.order_type,
+        payment_method: data.payment_method,
+        promotion_code: data.promotion_code ?? '',
+        notes: data.notes ?? '',
+        items,
+      };
+
+      submitButton.disabled = true;
+      setStatus('Procesando tu pedido...');
+
+      try {
+        const order = await apiFetch<CreatedOrder>('/orders/', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        clearCart();
+        localStorage.removeItem(DEADLINE_KEY);
+        form.reset();
+        syncDeliveryRequirement();
+        await loadDishes();
+        renderCheckoutCart();
+        const discount = Number(order.discount_amount);
+        const discountNote = discount > 0 ? ` (descuento ${formatMoney(discount)} aplicado)` : '';
+        setStatus(`Pedido #${order.id} registrado. Total: ${formatMoney(Number(order.total))}${discountNote}.`, 'success');
+      } catch (error) {
+        const message = error instanceof ApiError ? error.message : 'No se pudo registrar el pedido.';
+        setStatus(message, 'error');
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+
+    syncDeliveryRequirement();
+    renderCheckoutCart();
+    loadDishes();
+    tickTimer();
+    setInterval(tickTimer, 1000);
+  }
 </script>
 
 <style>
@@ -188,6 +281,11 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
 
   .payment-heading h1 {
     width: min(720px, 100%);
+  }
+
+  #cart-timer {
+    color: var(--clay);
+    font-variant-numeric: tabular-nums;
   }
 
   .payment-layout {
@@ -212,6 +310,10 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
     font-size: 1.35rem;
   }
 
+  .payment-form label.is-required > :global(input) {
+    border-color: var(--accent);
+  }
+
   .payment-form button {
     margin-top: 1rem;
     width: 100%;
@@ -226,17 +328,39 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
     gap: 1rem;
   }
 
-  .cart-row,
-  .total-row {
+  .cart-row {
     display: flex;
     justify-content: space-between;
     gap: 1rem;
     padding-bottom: 0.75rem;
     border-bottom: 1px solid var(--line);
     color: var(--ink-soft);
+    animation: row-in 0.32s ease both;
   }
 
+  @keyframes row-in {
+    from { opacity: 0; transform: translateX(8px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  .totals { display: grid; gap: 0.5rem; }
+
+  .total-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    color: var(--ink-soft);
+    font-size: 0.95rem;
+  }
+
+  .promo-hint { margin: 0; font-size: 0.78rem; color: var(--ink-soft); }
+
   .total-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--line);
     color: var(--jade);
     font-size: 1.15rem;
     font-weight: 900;
@@ -245,7 +369,10 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
   .checkout-card a {
     color: var(--clay);
     font-weight: 900;
+    transition: opacity 0.18s ease;
   }
+
+  .checkout-card a:hover { opacity: 0.7; }
 
   @media (max-width: 860px) {
     .payment-layout { grid-template-columns: 1fr; }

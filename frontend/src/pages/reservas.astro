@@ -6,7 +6,7 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
 <Layout title="Contacto | Gustos y Sabores">
   <section class="contact-page page">
     <div class="corner" aria-hidden="true"></div>
-    <div class="contact-heading">
+    <div class="contact-heading" data-reveal>
       <span class="eyebrow">CONTACTO</span>
       <h1>Ubicación</h1>
       <p>Av. Miguel Grau N° 11, Chiclayo, Perú</p>
@@ -24,7 +24,7 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
       ></iframe>
     </div>
 
-    <form id="reservation-form" class="contact-form" data-api={apiUrl}>
+    <form id="reservation-form" class="contact-form" data-api={apiUrl} data-reveal>
       <h2>Para consultas</h2>
       <p>+52 912345678 | info@gustosysabores@gmail.com</p>
       <div class="form-grid">
@@ -42,56 +42,51 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
 </Layout>
 
 <script>
-  const form = document.querySelector('#reservation-form');
-  const status = document.querySelector('#reservation-status');
+  import { apiFetch, ApiError } from '../scripts/api';
+
+  const form = document.querySelector<HTMLFormElement>('#reservation-form');
+  const status = document.querySelector<HTMLParagraphElement>('#reservation-status');
+  const submitButton = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
+
+  function setStatus(message: string, kind: 'error' | 'success' | '' = '') {
+    if (!status) return;
+    status.textContent = message;
+    status.classList.toggle('is-error', kind === 'error');
+    status.classList.toggle('is-success', kind === 'success');
+  }
 
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const formData = new FormData(form);
-    const payload = Object.fromEntries(formData.entries());
-    
+    const payload = Object.fromEntries(new FormData(form).entries()) as Record<string, string>;
+
     if (!payload.reserved_at) {
-      status.style.color = '#fee2e2';
-      status.textContent = 'Por favor, seleccione una fecha y hora.';
+      setStatus('Por favor, selecciona una fecha y hora.', 'error');
       return;
     }
-    
-    payload.reserved_at = new Date(payload.reserved_at).toISOString();
-    payload.party_size = Number(payload.party_size);
 
-    status.style.color = '#ffffff';
-    status.textContent = 'Enviando reserva...';
+    const when = new Date(payload.reserved_at);
+    if (Number.isNaN(when.getTime()) || when.getTime() <= Date.now()) {
+      setStatus('La fecha y hora de la reserva deben ser futuras.', 'error');
+      return;
+    }
+
+    const body = JSON.stringify({
+      ...payload,
+      reserved_at: when.toISOString(),
+      party_size: Number(payload.party_size),
+    });
+
+    if (submitButton) submitButton.disabled = true;
+    setStatus('Enviando reserva...');
 
     try {
-      const response = await fetch(`${form.dataset.api}/reservations/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      
-      if (!response.ok) {
-        let errMsg = 'No se pudo completar la reserva.';
-        try {
-          const errData = await response.json();
-          if (errData.reserved_at) {
-            errMsg = `Fecha y hora: ${errData.reserved_at.join(' ')}`;
-          } else if (errData.party_size) {
-            errMsg = `Personas: ${errData.party_size.join(' ')}`;
-          } else if (errData.detail) {
-            errMsg = errData.detail;
-          } else if (typeof errData === 'object') {
-            errMsg = Object.entries(errData).map(([k, v]) => `${k}: ${v}`).join(', ');
-          }
-        } catch (e) {}
-        throw new Error(errMsg);
-      }
-      
+      await apiFetch('/reservations/', { method: 'POST', body });
       form.reset();
-      status.style.color = '#86efac'; // light green
-      status.textContent = '¡Tu reserva ha sido registrada con éxito como PENDIENTE! Nos comunicaremos contigo.';
+      setStatus('¡Tu reserva fue registrada como PENDIENTE! Nos comunicaremos contigo.', 'success');
     } catch (error) {
-      status.style.color = '#fca5a5'; // light red
-      status.textContent = error.message;
+      setStatus(error instanceof ApiError ? error.message : 'No se pudo completar la reserva.', 'error');
+    } finally {
+      if (submitButton) submitButton.disabled = false;
     }
   });
 </script>
@@ -182,4 +177,8 @@ const apiUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
     background: white;
     box-shadow: none;
   }
+
+  /* High-contrast status on the dark green form background */
+  .contact-form .status.is-error { color: #fca5a5; }
+  .contact-form .status.is-success { color: #86efac; }
 </style>

@@ -4,7 +4,7 @@ import Layout from '../layouts/Layout.astro';
 
 <Layout title="Gustos y Sabores | Pedidos y reservas">
   <section class="page hero home-hero">
-    <div>
+    <div data-reveal>
       <span class="eyebrow">Cocina criolla norteña</span>
       <h1>Gustos auténticos, sabores que inspiran.</h1>
       <p>
@@ -15,7 +15,7 @@ import Layout from '../layouts/Layout.astro';
         <a class="button secondary" href="/reservas">Reservar mesa</a>
       </div>
     </div>
-    <aside class="hero-card">
+    <aside class="hero-card" data-reveal>
       <div class="photo photo-main" aria-hidden="true"></div>
       <div class="address-card">
         <strong>Av. Miguel Grau N° 11</strong>
@@ -25,26 +25,40 @@ import Layout from '../layouts/Layout.astro';
     </aside>
   </section>
 
-  <section class="page">
+  <section class="page" data-reveal>
     <span class="eyebrow">Nuestra propuesta</span>
-    <div class="feature-grid">
-      <article class="card value-card"><h3>Increíble comida</h3><p>Platos criollos preparados con identidad local, frescura y sabor norteño.</p></article>
-      <article class="card value-card"><h3>Producto local</h3><p>Ingredientes y recetas pensadas para sostener la experiencia del restaurante.</p></article>
-      <article class="card value-card"><h3>Experiencia única</h3><p>Pedidos y reservas organizados desde una interfaz simple para el cliente.</p></article>
+    <div class="feature-grid" data-reveal-group>
+      <article class="card value-card" data-reveal><h3>Increíble comida</h3><p>Platos criollos preparados con identidad local, frescura y sabor norteño.</p></article>
+      <article class="card value-card" data-reveal><h3>Producto local</h3><p>Ingredientes y recetas pensadas para sostener la experiencia del restaurante.</p></article>
+      <article class="card value-card" data-reveal><h3>Experiencia única</h3><p>Pedidos y reservas organizados desde una interfaz simple para el cliente.</p></article>
     </div>
   </section>
 
   <section class="newsletter">
-    <div class="page newsletter-inner">
+    <div class="page newsletter-inner" data-reveal>
       <span class="eyebrow inverse">Boletín</span>
       <h2>Recibe novedades en descuentos, eventos y promociones</h2>
-      <form class="subscribe" onsubmit="event.preventDefault()">
-        <label>Email<input type="email" placeholder="cliente@email.com" /></label>
+      <form id="subscribe-form" class="subscribe">
+        <label>Email<input name="email" type="email" placeholder="cliente@email.com" required /></label>
         <button type="submit">Suscríbete</button>
       </form>
+      <p id="subscribe-status" class="subscribe-status" aria-live="polite"></p>
     </div>
   </section>
 </Layout>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('#subscribe-form');
+  const status = document.querySelector<HTMLParagraphElement>('#subscribe-status');
+
+  form?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const email = new FormData(form).get('email');
+    if (!status) return;
+    form.reset();
+    status.textContent = `¡Gracias! Te avisaremos de novedades en ${String(email)}.`;
+  });
+</script>
 
 <style>
   .home-hero {
@@ -154,6 +168,13 @@ import Layout from '../layouts/Layout.astro';
 
   .subscribe label { flex: 1; text-align: left; }
   .subscribe button { background: var(--jade-3); }
+
+  .subscribe-status {
+    min-height: 1.2rem;
+    margin: 0.9rem 0 0;
+    color: #d8f5cf;
+    font-weight: 700;
+  }
 
   @media (max-width: 760px) {
     .home-hero { min-height: auto; }
