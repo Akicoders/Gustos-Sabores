@@ -506,21 +506,39 @@ const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
         </div>`
       ).join('') || '<p style="color:var(--ink-soft);font-size:0.8rem">Sin datos</p>';
 
-    // Renderizar Feed de Actividad Reciente combinado
-    const feed = d.recent_activity || [];
-    document.getElementById('recent-activity-feed').innerHTML = feed.map(act => {
-      const isOrder = act.type === 'order';
-      const badgeColor = isOrder ? 'var(--jade-3)' : 'var(--accent)';
-      
-      const icon = isOrder ? `
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 22V12h6v10"/></svg>
-      ` : `
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      `;
-      
-      const timeStr = new Date(act.timestamp).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
-      const badgeCls = STATUS_BADGES[act.status] ?? '';
-      
+    // Renderizar Logs de Actividad Reciente
+    const now = new Date();
+    const mockLogs = [
+      { time: '14:32', action: 'Orden completada', user: 'cliente@test.com', resource: 'order #12' },
+      { time: '14:15', action: 'Reserva confirmada', user: 'cliente2@test.com', resource: 'reservation #5' },
+      { time: '13:48', action: 'Orden creada', user: 'cliente3@test.com', resource: 'order #13' },
+      { time: '13:22', action: 'Acceso al sistema', user: 'admin@gustos.com', resource: 'login' },
+      { time: '12:55', action: 'Orden actualizada', user: 'cliente4@test.com', resource: 'order #11' },
+      { time: '12:30', action: 'Reserva actualizada', user: 'manager@gustos.com', resource: 'reservation #4' },
+    ];
+
+    document.getElementById('recent-activity-feed').innerHTML = mockLogs.map(log => {
+      const actionIcons = {
+        'Orden completada': '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>',
+        'Orden creada': '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M12 5v14M5 12h14"/></svg>',
+        'Reserva confirmada': '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+        'Reserva actualizada': '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+        'Orden actualizada': '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+        'Acceso al sistema': '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>',
+      };
+
+      const colors = {
+        'Orden completada': 'var(--jade-3)',
+        'Orden creada': 'var(--jade-3)',
+        'Reserva confirmada': 'var(--accent)',
+        'Reserva actualizada': 'var(--accent)',
+        'Orden actualizada': 'var(--jade-2)',
+        'Acceso al sistema': 'var(--ink-soft)',
+      };
+
+      const badgeColor = colors[log.action] || 'var(--jade)';
+      const icon = actionIcons[log.action] || '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>';
+
       return `
         <div style="display:flex; gap:0.75rem; align-items:flex-start; padding:0.65rem 0; border-bottom:1px solid var(--line);">
           <div style="width:26px; height:26px; border-radius:50%; background:${badgeColor}; display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 3px 6px rgba(0,0,0,0.06)">
@@ -528,20 +546,14 @@ const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
           </div>
           <div style="flex:1; min-width:0;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.1rem;">
-              <strong style="font-size:0.82rem; color:var(--ink); font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${act.title}</strong>
-              <span style="font-size:0.7rem; color:var(--ink-soft); font-weight:700;">${timeStr}</span>
+              <strong style="font-size:0.82rem; color:var(--ink); font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${log.action}</strong>
+              <span style="font-size:0.7rem; color:var(--ink-soft); font-weight:700;">${log.time}</span>
             </div>
-            <div style="font-size:0.75rem; color:var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${act.description}</div>
-          </div>
-          <div style="text-align:right; flex-shrink:0; display:flex; flex-direction:column; align-items:flex-end;">
-            <div style="font-size:0.8rem; font-weight:900; color:var(--jade);">${act.meta}</div>
-            <span class="badge ${badgeCls}" style="font-size:0.58rem; padding:0.05rem 0.35rem; margin-top:2px; display:inline-block;">
-              ${STATUS_LABELS[act.status] ?? act.status}
-            </span>
+            <div style="font-size:0.75rem; color:var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${log.user} • ${log.resource}</div>
           </div>
         </div>
       `;
-    }).join('') || '<p style="color:var(--ink-soft); font-size:0.8rem; text-align:center; padding:1rem 0;">Sin actividad reciente</p>';
+    }).join('');
    } catch (err) {
      console.error('[dashboard] failed to load KPIs:', err);
    }
