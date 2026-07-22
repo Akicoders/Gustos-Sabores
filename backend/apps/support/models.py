@@ -41,8 +41,8 @@ class ActivityLog(TimeStampedModel):
     )
 
     action = models.CharField(max_length=50, choices=ACTION_CHOICES)
-    user_email = models.EmailField(blank=True)
-    resource_type = models.CharField(max_length=50, blank=True)
+    user_email = models.EmailField(blank=True, default='')
+    resource_type = models.CharField(max_length=50, blank=True, default='')
     resource_id = models.IntegerField(blank=True, null=True)
     details = models.JSONField(default=dict, blank=True)
     ip_address = models.GenericIPAddressField(blank=True, null=True)

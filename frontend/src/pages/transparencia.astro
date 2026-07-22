@@ -1,0 +1,293 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+const api = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000/api';
+---
+
+<Layout title="Transparencia | Gustos y Sabores">
+  <div class="transparency-page">
+    <div class="transparency-header">
+      <h1>Transparencia Operacional</h1>
+      <p>Consulta la actividad reciente de nuestro restaurante en tiempo real. Esto demuestra nuestro compromiso con la transparencia y la calidad del servicio.</p>
+    </div>
+
+    <div class="transparency-container">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-number" id="stat-orders">0</div>
+          <div class="stat-label">Órdenes Completadas Hoy</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="stat-reservations">0</div>
+          <div class="stat-label">Reservas Confirmadas</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="stat-customers">0</div>
+          <div class="stat-label">Clientes Atendidos</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="stat-complaints">0</div>
+          <div class="stat-label">Reclamaciones Resueltas</div>
+        </div>
+      </div>
+
+      <div class="activity-section">
+        <h2>Actividad Reciente</h2>
+        <div class="activity-list" id="activity-list">
+          <div class="loading">Cargando actividad...</div>
+        </div>
+      </div>
+
+      <div class="info-box">
+        <h3>¿Por qué mostramos esta información?</h3>
+        <p>
+          En Gustos y Sabores creemos en la transparencia operacional. Esta página muestra datos públicos de nuestra actividad
+          como evidencia de nuestro compromiso con:
+        </p>
+        <ul>
+          <li><strong>Calidad de Servicio:</strong> Órdenes completadas y reservas confirmadas</li>
+          <li><strong>Atención al Cliente:</strong> Reclamaciones resueltas y seguimiento</li>
+          <li><strong>Responsabilidad:</strong> Registro de toda actividad en nuestro sistema</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<script define:vars={{ apiUrl: api }}>
+  async function loadActivity() {
+    try {
+      const res = await fetch(`${apiUrl}/support/logs/summary/?days=7`);
+      if (!res.ok) {
+        console.log('No hay datos de actividad disponibles aún. El sistema registrará eventos cuando haya órdenes y reservas.');
+        return;
+      }
+
+      const summary = await res.json();
+
+      document.getElementById('stat-orders').textContent = summary.order_completed?.count || 0;
+      document.getElementById('stat-reservations').textContent = summary.reservation_created?.count || 0;
+      document.getElementById('stat-customers').textContent = (summary.order_created?.count || 0) + (summary.reservation_created?.count || 0);
+
+      // Cargar lista de actividades recientes
+      loadActivityList();
+    } catch (err) {
+      console.log('Sistema de actividad inicializándose...');
+    }
+  }
+
+  async function loadActivityList() {
+    try {
+      const res = await fetch(`${apiUrl}/support/logs/recent/?days=7`);
+      if (!res.ok) return;
+
+      const logs = await res.json();
+      if (!logs.length) {
+        document.getElementById('activity-list').innerHTML =
+          '<div class="loading">Actividad será registrada cuando haya órdenes y reservas</div>';
+        return;
+      }
+
+      const html = logs.slice(0, 20).map(log => {
+        const date = new Date(log.created_at);
+        const time = date.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+        const dateStr = date.toLocaleDateString('es-PE');
+        return `<div class="activity-item">
+          <div class="activity-time">${time}</div>
+          <div class="activity-action">${log.action_display}</div>
+          <div class="activity-date">${dateStr}</div>
+        </div>`;
+      }).join('');
+
+      document.getElementById('activity-list').innerHTML = html;
+    } catch (err) {
+      console.error('Error loading activity list:', err);
+    }
+  }
+
+  // Cargar datos al iniciar
+  loadActivity();
+
+  // Recargar cada 30 segundos
+  setInterval(loadActivity, 30000);
+</script>
+
+<style>
+  .transparency-page {
+    padding-top: 4rem;
+    min-height: 100vh;
+    background: linear-gradient(135deg, rgba(0, 86, 72, 0.04), rgba(0, 124, 104, 0.04));
+  }
+
+  .transparency-header {
+    text-align: center;
+    max-width: 900px;
+    margin: 0 auto 3rem;
+    padding: 2rem 1rem;
+  }
+
+  .transparency-header h1 {
+    color: var(--jade);
+    margin-bottom: 1rem;
+    font-size: 2.5rem;
+  }
+
+  .transparency-header p {
+    color: var(--ink-soft);
+    font-size: 1.1rem;
+    line-height: 1.6;
+  }
+
+  .transparency-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 1rem 4rem;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+  }
+
+  .stat-card {
+    background: white;
+    padding: 2rem 1.5rem;
+    border-radius: 12px;
+    border: 1px solid rgba(0, 86, 72, 0.1);
+    box-shadow: 0 12px 40px rgba(0, 63, 53, 0.08);
+    text-align: center;
+    animation: admin-fade-up 0.5s ease forwards;
+  }
+
+  .stat-number {
+    font-size: 3rem;
+    font-weight: bold;
+    color: var(--jade);
+    margin-bottom: 0.5rem;
+  }
+
+  .stat-label {
+    font-size: 0.95rem;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .activity-section {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    border: 1px solid rgba(0, 86, 72, 0.1);
+    box-shadow: 0 12px 40px rgba(0, 63, 53, 0.08);
+    margin-bottom: 3rem;
+  }
+
+  .activity-section h2 {
+    color: var(--jade);
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+  }
+
+  .activity-list {
+    max-height: 500px;
+    overflow-y: auto;
+  }
+
+  .activity-item {
+    display: grid;
+    grid-template-columns: 60px 1fr 100px;
+    gap: 1rem;
+    padding: 1rem;
+    border-bottom: 1px solid var(--line);
+    align-items: center;
+  }
+
+  .activity-item:last-child {
+    border-bottom: none;
+  }
+
+  .activity-time {
+    font-weight: bold;
+    color: var(--jade);
+    font-family: monospace;
+  }
+
+  .activity-action {
+    color: var(--ink);
+  }
+
+  .activity-date {
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    text-align: right;
+  }
+
+  .loading {
+    text-align: center;
+    padding: 2rem;
+    color: var(--ink-soft);
+    font-style: italic;
+  }
+
+  .info-box {
+    background: rgba(0, 86, 72, 0.05);
+    border: 1px solid rgba(0, 86, 72, 0.2);
+    border-radius: 12px;
+    padding: 2rem;
+  }
+
+  .info-box h3 {
+    color: var(--jade);
+    margin-top: 0;
+  }
+
+  .info-box p {
+    color: var(--ink-soft);
+    line-height: 1.6;
+  }
+
+  .info-box ul {
+    margin-left: 1.5rem;
+    color: var(--ink-soft);
+    line-height: 1.8;
+  }
+
+  .info-box strong {
+    color: var(--jade);
+  }
+
+  @keyframes admin-fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (max-width: 900px) {
+    .stats-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .activity-item {
+      grid-template-columns: 50px 1fr;
+    }
+
+    .activity-date {
+      grid-column: 1 / -1;
+      text-align: left;
+      margin-top: -0.5rem;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .stats-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
