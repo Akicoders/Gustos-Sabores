@@ -139,24 +139,26 @@ const { title = 'Gustos y Sabores' } = Astro.props;
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 0.5rem;
+    gap: 1.2rem;
     position: absolute;
     left: 50%;
     bottom: 2rem;
     transform: translateX(-50%);
+    max-width: 90%;
   }
 
   nav a {
     position: relative;
-    padding: 0.35rem 0.45rem;
+    padding: 0.35rem 0.1rem;
     border: 0;
     border-radius: 0;
     font-family: ui-sans-serif, system-ui, sans-serif;
-    font-size: 0.68rem;
+    font-size: 0.7rem;
     font-weight: 800;
-    letter-spacing: 0.07em;
+    letter-spacing: 0.08em;
     color: rgba(255, 255, 255, 0.85);
     transition: color 0.18s ease;
+    white-space: nowrap;
   }
 
   nav a::after {
