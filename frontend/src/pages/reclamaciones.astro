@@ -1,0 +1,247 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { apiFetch } from '../scripts/api';
+
+let submitted = false;
+let error = '';
+---
+
+<Layout title="Libro de Reclamaciones | Gustos y Sabores">
+  <div class="complaints-page">
+    <div class="complaints-header">
+      <h1>Libro de Reclamaciones</h1>
+      <p>Tu opinión es importante. Si tienes una sugerencia o reclamo, cuéntanos para poder mejorar.</p>
+    </div>
+
+    <div class="complaints-container">
+      <div class="complaints-card">
+        <form id="complaint-form">
+          <div class="form-group">
+            <label for="name">Nombre completo *</label>
+            <input type="text" id="name" name="name" required />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="email">Correo electrónico *</label>
+              <input type="email" id="email" name="email" required />
+            </div>
+            <div class="form-group">
+              <label for="phone">Teléfono (opcional)</label>
+              <input type="tel" id="phone" name="phone" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="subject">Asunto *</label>
+            <input type="text" id="subject" name="subject" required />
+          </div>
+
+          <div class="form-group">
+            <label for="description">Descripción detallada *</label>
+            <textarea id="description" name="description" rows="6" required></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-primary" id="submit-btn">Enviar Reclamación</button>
+        </form>
+
+        {error && <div class="alert alert-error">{error}</div>}
+        {submitted && (
+          <div class="alert alert-success">
+            ✓ Gracias por tu reclamación. Nos pondremos en contacto en breve para resolver tu inquietud.
+          </div>
+        )}
+      </div>
+
+      <div class="info-card">
+        <h3>¿Qué es el libro de reclamaciones?</h3>
+        <p>Es un documento público donde puedes registrar cualquier inconformidad sobre nuestros productos o servicios.</p>
+
+        <h3>¿Cómo funciona?</h3>
+        <ul>
+          <li>Completa el formulario con tus datos y detalles</li>
+          <li>Nos comunicaremos contigo dentro de 48 horas</li>
+          <li>Trabajaremos en resolver tu reclamo</li>
+          <li>Te notificaremos cuando esté resuelto</li>
+        </ul>
+
+        <h3>Garantías</h3>
+        <p>Tus datos están protegidos y solo serán usados para atender tu reclamación según la ley de protección de datos personales.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<script define:vars={{ apiUrl: import.meta.env.PUBLIC_API_URL || 'http://localhost:8000/api' }}>
+  const form = document.getElementById('complaint-form');
+  const submitBtn = document.getElementById('submit-btn');
+  const errorEl = document.querySelector('.alert-error') || null;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const formData = {
+      name: document.getElementById('name').value,
+      email: document.getElementById('email').value,
+      phone: document.getElementById('phone').value,
+      subject: document.getElementById('subject').value,
+      description: document.getElementById('description').value,
+    };
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Enviando...';
+
+    try {
+      const response = await fetch(`${apiUrl}/support/complaints/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Error al enviar la reclamación');
+      }
+
+      form.style.display = 'none';
+      document.querySelector('.alert-success').style.display = 'block';
+    } catch (err) {
+      document.querySelector('.alert-error').textContent = err.message;
+      document.querySelector('.alert-error').style.display = 'block';
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Enviar Reclamación';
+    }
+  });
+</script>
+
+<style>
+  .complaints-page {
+    padding-top: 4rem;
+    min-height: 100vh;
+    background: linear-gradient(135deg, rgba(0, 86, 72, 0.04), rgba(0, 124, 104, 0.04));
+  }
+
+  .complaints-header {
+    text-align: center;
+    max-width: 800px;
+    margin: 0 auto 3rem;
+    padding: 2rem 1rem;
+  }
+
+  .complaints-header h1 {
+    color: var(--jade);
+    margin-bottom: 1rem;
+  }
+
+  .complaints-header p {
+    color: var(--ink-soft);
+    font-size: 1.1rem;
+  }
+
+  .complaints-container {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1rem 4rem;
+  }
+
+  .complaints-card, .info-card {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 12px 40px rgba(0, 63, 53, 0.08);
+    border: 1px solid rgba(0, 86, 72, 0.1);
+  }
+
+  .form-group {
+    margin-bottom: 1.5rem;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--jade);
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+
+  input, textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid rgba(0, 63, 53, 0.2);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 1rem;
+    transition: border-color 0.2s;
+  }
+
+  input:focus, textarea:focus {
+    outline: none;
+    border-color: var(--jade);
+    box-shadow: 0 0 0 3px rgba(0, 86, 72, 0.1);
+  }
+
+  textarea {
+    resize: vertical;
+  }
+
+  .alert {
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    display: none;
+  }
+
+  .alert-success {
+    background: rgba(52, 211, 153, 0.1);
+    color: #059669;
+    border: 1px solid rgba(52, 211, 153, 0.3);
+    display: block;
+  }
+
+  .alert-error {
+    background: rgba(248, 113, 113, 0.1);
+    color: #dc2626;
+    border: 1px solid rgba(248, 113, 113, 0.3);
+  }
+
+  .info-card h3 {
+    color: var(--jade);
+    margin-top: 1.5rem;
+    margin-bottom: 0.7rem;
+  }
+
+  .info-card h3:first-child {
+    margin-top: 0;
+  }
+
+  .info-card ul {
+    margin-left: 1.5rem;
+    color: var(--ink-soft);
+    line-height: 1.8;
+  }
+
+  .info-card p {
+    color: var(--ink-soft);
+    line-height: 1.6;
+  }
+
+  @media (max-width: 900px) {
+    .complaints-container {
+      grid-template-columns: 1fr;
+    }
+
+    .form-row {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

@@ -1,0 +1,145 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
+---
+
+<AdminLayout title="Reclamaciones | Gustos y Sabores">
+  <div class="section-header">
+    <span class="section-title">Libro de Reclamaciones</span>
+  </div>
+
+  <div class="admin-card" style="padding:0;overflow:hidden">
+    <div class="admin-table-wrapper">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Correo</th>
+            <th>Asunto</th>
+            <th>Fecha</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="complaints-tbody">
+          <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--ink-soft)">Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Modal para ver/responder reclamación -->
+  <div id="modal-complaint" class="modal-backdrop" style="display:none">
+    <div class="modal">
+      <p class="modal-title">Detalle de Reclamación</p>
+      <div style="margin-bottom:1.5rem">
+        <strong style="color:var(--jade)">Cliente:</strong>
+        <p id="complaint-name" style="margin:0.3rem 0"></p>
+
+        <strong style="color:var(--jade);margin-top:1rem;display:block">Correo:</strong>
+        <p id="complaint-email" style="margin:0.3rem 0"></p>
+
+        <strong style="color:var(--jade);margin-top:1rem;display:block">Teléfono:</strong>
+        <p id="complaint-phone" style="margin:0.3rem 0">—</p>
+
+        <strong style="color:var(--jade);margin-top:1rem;display:block">Asunto:</strong>
+        <p id="complaint-subject" style="margin:0.3rem 0"></p>
+
+        <strong style="color:var(--jade);margin-top:1rem;display:block">Descripción:</strong>
+        <p id="complaint-description" style="margin:0.3rem 0;white-space:pre-wrap"></p>
+
+        <strong style="color:var(--jade);margin-top:1rem;display:block">Fecha:</strong>
+        <p id="complaint-date" style="margin:0.3rem 0"></p>
+      </div>
+
+      <div class="field" style="margin-bottom:1rem">
+        <label for="complaint-response">Respuesta:</label>
+        <textarea id="complaint-response" style="width:100%;padding:0.75rem;border:1px solid var(--line);border-radius:6px;font-family:inherit" rows="4"></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btn-complaint-close">Cerrar</button>
+        <button class="btn btn-primary" id="btn-complaint-resolve">Marcar como Resuelta</button>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script define:vars={{ api }}>
+  const token = localStorage.getItem('gustos_token');
+  let complaints = [];
+  let currentComplaint = null;
+
+  async function loadComplaints() {
+    try {
+      const res = await fetch(`${api}/support/complaints/`, {
+        headers: { Authorization: `Token ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to load');
+      complaints = await res.json();
+      render();
+    } catch (err) {
+      console.error(err);
+      document.getElementById('complaints-tbody').innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:#f87171">Error al cargar reclamaciones</td></tr>';
+    }
+  }
+
+  function render() {
+    const tbody = document.getElementById('complaints-tbody');
+    if (!complaints.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--ink-soft)">Sin reclamaciones</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = complaints.map(c => `<tr>
+      <td><strong>${c.name}</strong></td>
+      <td>${c.email}</td>
+      <td>${c.subject}</td>
+      <td>${new Date(c.created_at).toLocaleDateString('es-PE')}</td>
+      <td><span class="badge ${c.status === 'new' ? 'badge-warning' : c.status === 'resolved' ? 'badge-ok' : 'badge-cancelled'}">${c.status_display}</span></td>
+      <td><button class="btn btn-ghost" style="font-size:0.8rem" onclick="verDetalle(${c.id})">Ver</button></td>
+    </tr>`).join('');
+  }
+
+  window.verDetalle = function(id) {
+    currentComplaint = complaints.find(c => c.id === id);
+    if (!currentComplaint) return;
+
+    document.getElementById('complaint-name').textContent = currentComplaint.name;
+    document.getElementById('complaint-email').textContent = currentComplaint.email;
+    document.getElementById('complaint-phone').textContent = currentComplaint.phone || '—';
+    document.getElementById('complaint-subject').textContent = currentComplaint.subject;
+    document.getElementById('complaint-description').textContent = currentComplaint.description;
+    document.getElementById('complaint-date').textContent = new Date(currentComplaint.created_at).toLocaleString('es-PE');
+    document.getElementById('complaint-response').value = currentComplaint.response || '';
+    document.getElementById('modal-complaint').style.display = 'flex';
+  };
+
+  document.getElementById('btn-complaint-close').onclick = () => {
+    document.getElementById('modal-complaint').style.display = 'none';
+  };
+
+  document.getElementById('btn-complaint-resolve').onclick = async () => {
+    const response = document.getElementById('complaint-response').value;
+    const res = await fetch(`${api}/support/complaints/${currentComplaint.id}/resolve/`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Token ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ response })
+    });
+    if (res.ok) {
+      document.getElementById('modal-complaint').style.display = 'none';
+      loadComplaints();
+    }
+  };
+
+  loadComplaints();
+</script>
+
+<style>
+  .admin-table-wrapper {
+    overflow-x: auto;
+  }
+</style>

@@ -1,0 +1,150 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+const api = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8000/api';
+---
+
+<AdminLayout title="Registros de Actividad | Gustos y Sabores">
+  <div class="section-header">
+    <span class="section-title">Registros de Actividad</span>
+    <div style="display:flex;gap:0.8rem">
+      <select id="filter-action" class="btn btn-ghost" style="padding:0.6rem 0.9rem">
+        <option value="">Todos los eventos</option>
+        <option value="order_created">Órdenes creadas</option>
+        <option value="order_updated">Órdenes actualizadas</option>
+        <option value="order_completed">Órdenes completadas</option>
+        <option value="reservation_created">Reservas creadas</option>
+        <option value="reservation_updated">Reservas actualizadas</option>
+        <option value="reservation_cancelled">Reservas canceladas</option>
+        <option value="login">Accesos</option>
+        <option value="admin_action">Acciones de admin</option>
+      </select>
+      <select id="filter-days" class="btn btn-ghost" style="padding:0.6rem 0.9rem">
+        <option value="1">Últimas 24h</option>
+        <option value="7">Últimos 7 días</option>
+        <option value="30">Últimos 30 días</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="admin-card" style="padding:0;overflow:hidden">
+    <div class="admin-table-wrapper">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Hora</th>
+            <th>Evento</th>
+            <th>Usuario</th>
+            <th>Recurso</th>
+            <th>IP</th>
+          </tr>
+        </thead>
+        <tbody id="logs-tbody">
+          <tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--ink-soft)">Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Resumen de actividad -->
+  <div style="margin-top:2rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem">
+    <div class="admin-card" style="padding:1.5rem">
+      <div style="font-size:0.9rem;color:var(--ink-soft);margin-bottom:0.5rem">Órdenes Creadas</div>
+      <div id="summary-order-created" style="font-size:2rem;font-weight:bold;color:var(--jade)">0</div>
+    </div>
+    <div class="admin-card" style="padding:1.5rem">
+      <div style="font-size:0.9rem;color:var(--ink-soft);margin-bottom:0.5rem">Reservas Creadas</div>
+      <div id="summary-reservation-created" style="font-size:2rem;font-weight:bold;color:var(--jade)">0</div>
+    </div>
+    <div class="admin-card" style="padding:1.5rem">
+      <div style="font-size:0.9rem;color:var(--ink-soft);margin-bottom:0.5rem">Accesos</div>
+      <div id="summary-login" style="font-size:2rem;font-weight:bold;color:var(--jade)">0</div>
+    </div>
+    <div class="admin-card" style="padding:1.5rem">
+      <div style="font-size:0.9rem;color:var(--ink-soft);margin-bottom:0.5rem">Total de eventos</div>
+      <div id="summary-total" style="font-size:2rem;font-weight:bold;color:var(--jade)">0</div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script define:vars={{ api }}>
+  const token = localStorage.getItem('gustos_token');
+  let logs = [];
+
+  async function loadLogs() {
+    const action = document.getElementById('filter-action').value;
+    const days = document.getElementById('filter-days').value;
+
+    try {
+      const url = new URL(`${api}/support/logs/`);
+      if (action) url.searchParams.append('action', action);
+      url.searchParams.append('days', days);
+
+      const res = await fetch(url, {
+        headers: { Authorization: `Token ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to load');
+      logs = await res.json();
+      render();
+      loadSummary();
+    } catch (err) {
+      console.error(err);
+      document.getElementById('logs-tbody').innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:#f87171">Error al cargar registros</td></tr>';
+    }
+  }
+
+  function render() {
+    const tbody = document.getElementById('logs-tbody');
+    if (!logs.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--ink-soft)">Sin registros</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = logs.map(log => {
+      const date = new Date(log.created_at);
+      const time = date.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+      const resource = log.resource_type && log.resource_id ? `${log.resource_type} #${log.resource_id}` : '—';
+      return `<tr>
+        <td style="font-size:0.9rem">${time}</td>
+        <td><strong>${log.action_display}</strong></td>
+        <td style="font-size:0.9rem">${log.user_email || '—'}</td>
+        <td style="font-size:0.9rem">${resource}</td>
+        <td style="font-size:0.9rem;font-family:monospace">${log.ip_address || '—'}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  async function loadSummary() {
+    const days = document.getElementById('filter-days').value;
+    try {
+      const res = await fetch(`${api}/support/logs/summary/?days=${days}`, {
+        headers: { Authorization: `Token ${token}` }
+      });
+      if (!res.ok) return;
+      const summary = await res.json();
+
+      document.getElementById('summary-order-created').textContent = summary.order_created?.count || 0;
+      document.getElementById('summary-reservation-created').textContent = summary.reservation_created?.count || 0;
+      document.getElementById('summary-login').textContent = summary.login?.count || 0;
+
+      let total = 0;
+      Object.values(summary).forEach(item => total += item.count || 0);
+      document.getElementById('summary-total').textContent = total;
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  document.getElementById('filter-action').addEventListener('change', loadLogs);
+  document.getElementById('filter-days').addEventListener('change', () => {
+    loadLogs();
+    loadSummary();
+  });
+
+  loadLogs();
+</script>
+
+<style>
+  .admin-table-wrapper {
+    overflow-x: auto;
+  }
+</style>
